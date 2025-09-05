@@ -12,7 +12,9 @@
       "Bash(npm run build:*)",
       "Bash(python3:*)",
       "Bash(source:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

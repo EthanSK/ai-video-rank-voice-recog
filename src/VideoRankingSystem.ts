@@ -15,8 +15,8 @@ export class VideoRankingSystem {
   private currentPrompt: string = '';
 
   async initialize(): Promise<void> {
-    // Launch browser with custom debugging port
-    const debuggingPort = 9222 + Math.floor(Math.random() * 1000);
+    // Launch Puppeteer's bundled Chromium with stealth settings
+    console.log('🚀 Launching Chromium with anti-detection...');
     this.browser = await puppeteer.launch({
       headless: false,
       defaultViewport: null,
@@ -24,20 +24,55 @@ export class VideoRankingSystem {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-web-security',
+        '--disable-blink-features=AutomationControlled',
         '--disable-features=VizDisplayCompositor',
-        '--start-maximized',
-        `--remote-debugging-port=${debuggingPort}`
-      ],
-      ignoreHTTPSErrors: true,
-      timeout: 60000,
-      protocolTimeout: 60000
+        '--disable-web-security',
+        '--disable-features=site-per-process'
+      ]
     });
 
-    // Create pages
+    // Remove webdriver property and add stealth settings
+    const pages = await this.browser.pages();
+    for (const page of pages) {
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined,
+        });
+        
+        // Mock the plugins array
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+        
+        // Mock the languages
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en'],
+        });
+      });
+      
+      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    }
+
+    // Create pages with stealth settings
     this.originalPage = await this.browser.newPage();
     this.topVideoPage = await this.browser.newPage();
     this.bottomVideoPage = await this.browser.newPage();
+
+    // Apply stealth settings to all pages
+    for (const page of [this.originalPage, this.topVideoPage, this.bottomVideoPage]) {
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined,
+        });
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en'],
+        });
+      });
+      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    }
 
     // Set page titles
     await this.topVideoPage.evaluateOnNewDocument(() => {
