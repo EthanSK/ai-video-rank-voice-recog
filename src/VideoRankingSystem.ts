@@ -15,69 +15,24 @@ export class VideoRankingSystem {
   private currentPrompt: string = '';
 
   async initialize(): Promise<void> {
-    // Launch Puppeteer's bundled Chromium with stealth settings
-    console.log('🚀 Launching Chromium with anti-detection...');
+    // Launch browser with simple configuration
+    console.log('🚀 Launching simple browser...');
     this.browser = await puppeteer.launch({
       headless: false,
       defaultViewport: null,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-web-security',
-        '--disable-features=site-per-process'
-      ]
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    // Remove webdriver property and add stealth settings
-    const pages = await this.browser.pages();
-    for (const page of pages) {
-      await page.evaluateOnNewDocument(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
-        });
-        
-        // Mock the plugins array
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5],
-        });
-        
-        // Mock the languages
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['en-US', 'en'],
-        });
-      });
-      
-      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    }
-
-    // Create pages with stealth settings
+    // Create simple pages
     this.originalPage = await this.browser.newPage();
     this.topVideoPage = await this.browser.newPage();
     this.bottomVideoPage = await this.browser.newPage();
 
-    // Apply stealth settings to all pages
-    for (const page of [this.originalPage, this.topVideoPage, this.bottomVideoPage]) {
-      await page.evaluateOnNewDocument(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
-        });
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5],
-        });
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['en-US', 'en'],
-        });
-      });
-      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    }
-
-    // Set page titles
+    // Set simple page titles
     await this.topVideoPage.evaluateOnNewDocument(() => {
       document.title = 'TOP';
     });
+    
     await this.bottomVideoPage.evaluateOnNewDocument(() => {
       document.title = 'BOTTOM';
     });
@@ -88,34 +43,32 @@ export class VideoRankingSystem {
       this.bottomVideoPage
     );
 
-    // Navigate to the original website with retry logic
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        await this.originalPage.goto('https://artificialanalysis.ai/text-to-video/arena', {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
-        });
-        console.log('🌐 Navigated to Artificial Analysis Arena');
-        break;
-      } catch (error) {
-        retries--;
-        if (retries === 0) throw error;
-        console.log(`⚠️ Navigation failed, retrying... (${retries} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
+    console.log('⚠️ Skipping navigation to Cloudflare-protected site for now...');
+    console.log('🔧 Set up demo videos in custom UI instead...');
+    
+    // For now, create demo content to test the UI
+    await this.createDemoContent();
 
     // Initialize voice controller (skip for testing)
     console.log('⚠️ Skipping voice controller initialization for testing...');
-    // this.voiceController = new VoiceController();
-    // await this.voiceController.initialize();
+  }
 
-    // Set up voice command handlers
-    // this.setupVoiceCommandHandlers();
+  private async createDemoContent(): Promise<void> {
+    // Use demo video URLs for testing the UI
+    const demoTopVideo = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const demoBottomVideo = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4';
+    const demoPrompt = 'Demo: Testing the dual video display system';
 
-    // Monitor for new videos on the original page
-    this.startVideoMonitoring();
+    console.log('🎬 Setting up demo videos...');
+    
+    await this.displayManager?.updateVideos(
+      demoTopVideo,
+      demoBottomVideo,
+      demoPrompt
+    );
+
+    console.log('✅ Demo videos loaded in TOP and BOTTOM windows');
+    console.log('📱 You can now manually test the UI layout');
   }
 
   private setupVoiceCommandHandlers(): void {
@@ -146,12 +99,20 @@ export class VideoRankingSystem {
     if (!this.originalPage) return;
 
     try {
+      // Human-like delay before action
+      await this.randomDelay(500, 1500);
+      
       // Find the preference buttons using more reliable selectors
       const buttons = await this.originalPage.$$('button[class*="prefer"], button:has-text("Prefer this video")');
       
       if (buttons.length >= 2) {
         const targetButton = preference === 'top' ? buttons[0] : buttons[1];
+        
+        // Simulate human-like clicking
+        await targetButton.hover();
+        await this.randomDelay(200, 500);
         await targetButton.click();
+        
         console.log(`✅ Selected ${preference} preference on original site`);
         
         // Wait a bit for the next comparison to load

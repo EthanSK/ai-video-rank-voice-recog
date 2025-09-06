@@ -1,7 +1,7 @@
-import { VideoRankingSystem } from './VideoRankingSystem';
+import { UltraStealthSystem } from './UltraStealthSystem';
 
 async function main() {
-  const system = new VideoRankingSystem();
+  const system = new UltraStealthSystem();
   
   try {
     console.log('🎬 Starting AI Video Ranking Voice Control System...');
