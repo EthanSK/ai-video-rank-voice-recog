@@ -231,15 +231,16 @@ export class ExtensionSystem {
 
 
   private lastAnnouncedModelData: string | null = null;
+  private modelCallCounter: number = 0;
 
   private async handleModelNames(models: Array<{ name: string, preference: string, type: string }>): Promise<void> {
-    console.log('🔍 RECEIVED MODEL DATA FROM EXTENSION:', JSON.stringify(models, null, 2));
+    console.log('🔍 RECEIVED MODEL DATA FROM EXTENSION (call #' + (++this.modelCallCounter) + '):', JSON.stringify(models, null, 2));
     
     // Check if this is the exact same model data we already announced for this video set
     const currentModelData = JSON.stringify(models);
     
     if (this.lastAnnouncedModelData === currentModelData) {
-      console.log('🔄 Same model data already announced for this video set, skipping');
+      console.log('🔄 DUPLICATE MODEL DATA - Same data already processed, skipping announcement');
       return;
     }
     
@@ -250,7 +251,7 @@ export class ExtensionSystem {
     console.log('📋 ALL MODELS DETECTED:', allModels);
     console.log('🎯 PREFERRED MODEL FOUND:', preferredModel ? `"${preferredModel.name}"` : 'NONE');
     
-    // Update tracking - we've now seen this model data for this video set
+    // Update tracking BEFORE making announcement to prevent race conditions
     this.lastAnnouncedModelData = currentModelData;
     
     // Import spawn for running the 'say' command
@@ -258,7 +259,12 @@ export class ExtensionSystem {
     
     if (preferredModel) {
       const modelName = preferredModel.name;
-      console.log(`🗣️  DANIEL WILL SAY: "Selected ${modelName}"`);
+      console.log(`🗣️  DANIEL WILL ANNOUNCE (ONCE): "Selected ${modelName}"`);
+      
+      // Mute voice recognition before speaking
+      if (this.voiceController) {
+        this.voiceController.muteForTTS();
+      }
       
       // Use macOS built-in 'say' command with Daniel voice to announce the selected model
       const announcement = `Selected ${modelName}`;
@@ -266,11 +272,20 @@ export class ExtensionSystem {
       
       sayProcess.on('error', (error) => {
         console.log('⚠️ Text-to-speech error:', error.message);
+        // Unmute on error
+        if (this.voiceController) {
+          this.voiceController.unmuteAfterTTS();
+        }
       });
       
       sayProcess.on('close', (code) => {
+        // Always unmute when TTS finishes (success or failure)
+        if (this.voiceController) {
+          this.voiceController.unmuteAfterTTS();
+        }
+        
         if (code === 0) {
-          console.log(`✅ Daniel announced: ${announcement}`);
+          console.log(`✅ Daniel announced (ONCE): ${announcement}`);
         }
       });
     } else {

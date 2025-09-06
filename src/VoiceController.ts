@@ -9,10 +9,10 @@ export class VoiceController {
   private commandHandlers: Map<string, () => Promise<void>> = new Map();
   private isListening = false;
   private tempAudioFile = path.join(os.tmpdir(), 'voice_control_audio.wav');
-  private audioBuffer: string[] = [];
   private processingInProgress = false;
   private isDownloadingModel = false;
   private allowLongDownload = false;
+  private isMutedForTTS = false; // New: mute voice recognition during TTS
   
   public onCommand: ((command: string) => void) | null = null;
 
@@ -140,6 +140,15 @@ export class VoiceController {
   private async processAudioChunk(audioFile: string): Promise<void> {
     if (this.processingInProgress) {
       // Drop this chunk to avoid overlapping processing and file contention
+      try {
+        if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+      } catch {}
+      return;
+    }
+
+    // Skip processing if muted for TTS
+    if (this.isMutedForTTS) {
+      console.log('🔇 Voice recognition muted (TTS speaking), dropping audio chunk');
       try {
         if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
       } catch {}
@@ -434,6 +443,18 @@ export class VoiceController {
 
   registerCommand(command: string, handler: () => Promise<void>): void {
     this.commandHandlers.set(command, handler);
+  }
+
+  // Mute voice recognition during TTS to prevent interference
+  muteForTTS(): void {
+    console.log('🔇 Muting voice recognition for TTS');
+    this.isMutedForTTS = true;
+  }
+
+  // Unmute voice recognition after TTS completes
+  unmuteAfterTTS(): void {
+    console.log('🔊 Unmuting voice recognition after TTS');
+    this.isMutedForTTS = false;
   }
 
   async cleanup(): Promise<void> {
