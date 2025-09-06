@@ -45,6 +45,12 @@ export class ExtensionSystem {
       // Store the video data
       this.currentVideoData = videoData;
       
+      // Reset model announcement tracking when new videos are loaded
+      if (hasNewVideos) {
+        console.log('🎬 New videos detected - resetting model announcement tracking');
+        this.lastAnnouncedModelData = null;
+      }
+      
       // Update display if we have valid video URLs
       if (videoData.top && videoData.bottom && this.displayManager) {
         this.displayManager.updateVideos(
@@ -245,8 +251,18 @@ export class ExtensionSystem {
   }
 
 
+  private lastAnnouncedModelData: string | null = null;
+
   private async handleModelNames(models: Array<{ name: string, preference: string, type: string }>): Promise<void> {
     console.log('🔍 RECEIVED MODEL DATA FROM EXTENSION:', JSON.stringify(models, null, 2));
+    
+    // Check if this is the exact same model data we already announced for this video set
+    const currentModelData = JSON.stringify(models);
+    
+    if (this.lastAnnouncedModelData === currentModelData) {
+      console.log('🔄 Same model data already announced for this video set, skipping');
+      return;
+    }
     
     // Find the preferred model (the one that was voted for)
     const preferredModel = models.find(model => model.preference === 'preferred');
@@ -255,12 +271,15 @@ export class ExtensionSystem {
     console.log('📋 ALL MODELS DETECTED:', allModels);
     console.log('🎯 PREFERRED MODEL FOUND:', preferredModel ? `"${preferredModel.name}"` : 'NONE');
     
+    // Update tracking - we've now seen this model data for this video set
+    this.lastAnnouncedModelData = currentModelData;
+    
     // Import spawn for running the 'say' command
     const { spawn } = await import('child_process');
     
     if (preferredModel) {
       const modelName = preferredModel.name;
-      console.log(`🗣️  DANIEL SHOULD SAY: "Selected ${modelName}"`);
+      console.log(`🗣️  DANIEL WILL SAY: "Selected ${modelName}"`);
       
       // Use macOS built-in 'say' command with Daniel voice to announce the selected model
       const announcement = `Selected ${modelName}`;
@@ -272,26 +291,19 @@ export class ExtensionSystem {
       
       sayProcess.on('close', (code) => {
         if (code === 0) {
-          console.log(`✅ Successfully announced: ${announcement}`);
+          console.log(`✅ Daniel announced: ${announcement}`);
         }
       });
     } else {
-      console.log('⚠️ NO PREFERRED MODEL FOUND - DANIEL SHOULD SAY FALLBACK MESSAGE');
-      console.log('🔍 DEBUG: Extension might not be detecting model names correctly');
+      console.log('⚠️ NO PREFERRED MODEL FOUND - only non-preferred models detected');
+      console.log('🔍 This means you voted AGAINST these models');
+      console.log('🤐 Daniel stays silent for non-preferred models (correct behavior)');
       
-      // Fallback message when no model name could be retrieved
-      const fallbackMessage = "I'm retarded";
-      const sayProcess = spawn('say', ['-v', 'Daniel', fallbackMessage]);
-      
-      sayProcess.on('error', (error) => {
-        console.log('⚠️ Text-to-speech error:', error.message);
-      });
-      
-      sayProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log(`✅ Successfully announced fallback: ${fallbackMessage}`);
-        }
-      });
+      // Show which model was voted against for debugging
+      const nonPreferredModel = models.find(m => m.preference === 'not-preferred');
+      if (nonPreferredModel) {
+        console.log(`👎 You voted AGAINST: "${nonPreferredModel.name}"`);
+      }
     }
   }
 

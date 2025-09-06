@@ -5,10 +5,15 @@ class VideoExtractor {
   constructor() {
     this.backendUrl = 'http://localhost:7777';
     this.isConnected = false;
+    this.lastModelData = null; // Track last sent model data to prevent spam
+    this.lastSentTimestamp = null; // Track when we last sent data
+    this.scanCount = 0; // Track number of model detection scans
+    this.currentUrl = window.location.href; // Track current URL for navigation detection
     this.checkBackendConnection();
     this.setupVideoMonitoring();
     this.setupCommandPolling();
     this.setupModelNamePolling();
+    this.setupNavigationMonitoring();
     this.createDebugUI();
   }
 
@@ -238,29 +243,80 @@ class VideoExtractor {
   }
 
   startHighFrequencyPolling() {
-    console.log('🚀 Starting high frequency polling for model names...');
+    console.log('🚀 Starting high frequency polling for model names (300ms for 4 seconds)...');
     
     // Clear any existing high frequency polling
     if (this.voteDetectionInterval) {
       clearInterval(this.voteDetectionInterval);
     }
     
-    // Poll every 300ms for 10 seconds after a vote
+    // DON'T reset lastModelData here - we need it for deduplication!
+    // this.lastModelData = null;  // REMOVED - this was causing the spam
+    
+    // Poll every 300ms for 4 seconds (as requested)
     let pollCount = 0;
+    const maxPolls = Math.floor(4000 / 300); // 4 seconds / 300ms = ~13 polls
+    let modelFoundAndSent = false;
+    
     this.voteDetectionInterval = setInterval(() => {
       this.extractAndSendModelNames();
       pollCount++;
       
-      // Stop after 10 seconds (33 polls)
-      if (pollCount >= 33) {
+      // Check if we found and sent models this cycle
+      if (this.lastModelData !== null && !modelFoundAndSent) {
+        modelFoundAndSent = true;
+        console.log('✅ Models detected and sent - continuing polling for remaining time');
+      }
+      
+      // Stop after 4 seconds (13 polls at 300ms)
+      if (pollCount >= maxPolls) {
         clearInterval(this.voteDetectionInterval);
         this.voteDetectionInterval = null;
-        console.log('🛑 Stopped high frequency polling');
+        console.log('🛑 Stopped high frequency polling after 4 seconds');
       }
-    }, 300);
+    }, 300); // 300ms polling as requested
+  }
+
+  setupNavigationMonitoring() {
+    // Monitor URL changes (for SPA navigation)
+    const checkForNavigation = () => {
+      const newUrl = window.location.href;
+      if (newUrl !== this.currentUrl) {
+        console.log('🌐 Navigation detected:', this.currentUrl, '→', newUrl);
+        this.currentUrl = newUrl;
+        
+        // Reset tracking for new page
+        this.lastModelData = null;
+        this.lastSentTimestamp = null;
+        this.scanCount = 0;
+        
+        // Clear any active polling
+        if (this.voteDetectionInterval) {
+          clearInterval(this.voteDetectionInterval);
+          this.voteDetectionInterval = null;
+        }
+        
+        // Re-initialize video extraction for new page
+        setTimeout(() => {
+          console.log('🔄 Re-initializing for new comparison...');
+          this.extractAndSendVideos();
+        }, 1000);
+      }
+    };
+    
+    // Check for navigation every 1 second
+    setInterval(checkForNavigation, 1000);
+    
+    // Also listen for popstate events (back/forward buttons)
+    window.addEventListener('popstate', () => {
+      setTimeout(checkForNavigation, 100);
+    });
   }
 
   extractAndSendModelNames() {
+    // Increment scan counter
+    this.scanCount++;
+    
     // Look for model names that appear after voting
     // Based on the DOM investigation, they appear in divs with green/red colors and arrows
     const modelElements = [];
@@ -323,24 +379,37 @@ class VideoExtractor {
       debugInfo.push(`Model-like texts found: ${modelLikeTexts.join(', ')}`);
     }
     
-    // Update debug UI
+    // Update debug UI with scan count
     this.updateDebugUI(modelElements, debugInfo);
     
-    // Only send if we found model names and they're different from what we last sent
+    // Handle model detection logic
     if (modelElements.length > 0) {
       const currentModelData = JSON.stringify(modelElements);
-      if (this.lastModelData !== currentModelData) {
-        console.log('🏷️ Found model names:', modelElements);
+      const now = Date.now();
+      
+      // More lenient deduplication - only block if sent within last 2 seconds
+      const shouldSend = (this.lastModelData !== currentModelData) || 
+                        (!this.lastSentTimestamp || (now - this.lastSentTimestamp) > 2000);
+      
+      if (shouldSend) {
+        console.log('🏷️ NEW MODEL DATA - Sending to backend:', modelElements);
         this.lastModelData = currentModelData;
+        this.lastSentTimestamp = now;
         
         // Send model names to backend
         this.sendToBackend('/model-names', {
           models: modelElements,
-          timestamp: Date.now()
+          timestamp: now
         });
+      } else {
+        // Same data as before - don't send to prevent spam
+        console.log('🔄 Duplicate model data (within 2s), not sending again');
       }
     } else {
-      console.log('🔍 No model names detected. Debug info:', debugInfo);
+      // No models found - but don't reset immediately, might just be a brief gap
+      if (this.lastModelData !== null) {
+        console.log('🔍 No models detected in this scan');
+      }
     }
   }
   
@@ -375,32 +444,49 @@ class VideoExtractor {
   }
 
   createDebugUI() {
-    // Create a debug panel in the top-right corner
+    // Remove any existing debug panel first
+    const existingPanel = document.getElementById('arena-extension-debug');
+    if (existingPanel) {
+      existingPanel.remove();
+    }
+    
+    // Create a debug panel in the top-right corner with more prominent styling
     const debugPanel = document.createElement('div');
     debugPanel.id = 'arena-extension-debug';
     debugPanel.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 300px;
-      max-height: 400px;
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 10px;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 12px;
-      z-index: 10000;
-      overflow-y: auto;
-      border: 2px solid #333;
+      position: fixed !important;
+      top: 10px !important;
+      right: 10px !important;
+      width: 350px !important;
+      max-height: 500px !important;
+      background: rgba(0, 0, 0, 0.95) !important;
+      color: white !important;
+      padding: 15px !important;
+      border-radius: 10px !important;
+      font-family: 'Courier New', monospace !important;
+      font-size: 13px !important;
+      z-index: 999999 !important;
+      overflow-y: auto !important;
+      border: 3px solid #ff4444 !important;
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.5) !important;
     `;
     
     debugPanel.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 10px;">🎬 Arena Extension Debug</div>
-      <div id="debug-content">Waiting for model detection...</div>
+      <div style="font-weight: bold; margin-bottom: 15px; color: #ff4444; font-size: 14px;">🎬 Arena Extension Debug</div>
+      <div id="debug-content">Starting model detection...</div>
     `;
     
     document.body.appendChild(debugPanel);
+    
+    // Make sure it stays visible
+    setTimeout(() => {
+      if (document.getElementById('arena-extension-debug')) {
+        console.log('✅ Debug UI created and visible');
+      } else {
+        console.log('❌ Debug UI not found, recreating...');
+        this.createDebugUI();
+      }
+    }, 1000);
   }
 
   updateDebugUI(modelElements, debugInfo) {
@@ -409,18 +495,33 @@ class VideoExtractor {
     
     let content = '';
     
+    // Show scan counter
+    content += `<div style="color: #2196F3; font-weight: bold;">🔍 Scans: ${this.scanCount}</div><br>`;
+    
+    // Show last known model if any
+    if (this.lastModelData) {
+      try {
+        const lastModels = JSON.parse(this.lastModelData);
+        const preferredModel = lastModels.find(m => m.preference === 'preferred');
+        if (preferredModel) {
+          content += `<div style="color: #4CAF50; font-weight: bold;">🏷️ Last Known Model:</div>`;
+          content += `<div style="color: #4CAF50;">• ${preferredModel.name}</div><br>`;
+        }
+      } catch (e) {}
+    }
+    
     if (modelElements.length > 0) {
-      content += '<div style="color: #4CAF50; font-weight: bold;">✅ Models Found:</div>';
+      content += '<div style="color: #4CAF50; font-weight: bold;">✅ Current Models:</div>';
       modelElements.forEach(model => {
         const color = model.preference === 'preferred' ? '#4CAF50' : '#f44336';
         content += `<div style="color: ${color};">• ${model.name} (${model.preference})</div>`;
       });
     } else {
-      content += '<div style="color: #ff9800;">⚠️ No models detected</div>';
+      content += '<div style="color: #ff9800;">⚠️ No current models detected</div>';
     }
     
     content += '<br><div style="color: #ccc; font-size: 10px;">Debug Info:</div>';
-    debugInfo.slice(0, 10).forEach(info => {
+    debugInfo.slice(0, 5).forEach(info => {
       content += `<div style="color: #888; font-size: 10px;">${info}</div>`;
     });
     
