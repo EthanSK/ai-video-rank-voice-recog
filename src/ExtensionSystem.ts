@@ -148,20 +148,20 @@ export class ExtensionSystem {
     // Remove debug logging - it's working and too verbose
   }
 
-  private handleVoiceCommand(command: string) {
+  private async handleVoiceCommand(command: string) {
     const cmd = command.toLowerCase().trim();
     
     switch (cmd) {
       case 'top':
       case 'left':
       case 'first':
-        this.selectPreference('top');
+        await this.selectPreference('top');
         break;
         
       case 'bottom':
       case 'right':
       case 'second':
-        this.selectPreference('bottom');
+        await this.selectPreference('bottom');
         break;
         
       case 'play':
@@ -190,7 +190,7 @@ export class ExtensionSystem {
 
   private commandQueue: Array<{type: string, data: any}> = [];
 
-  private selectPreference(preference: 'top' | 'bottom') {
+  private async selectPreference(preference: 'top' | 'bottom') {
     console.log(`🎯 ${preference.toUpperCase()}`);
     
     // Add command to queue for extension to poll
@@ -198,6 +198,34 @@ export class ExtensionSystem {
       type: 'select_preference',
       data: { preference, timestamp: Date.now() }
     });
+
+    // Use Playwright to click the preference and get the model name for TTS
+    try {
+      await this.clickPreferenceAndAnnounceModel(preference);
+    } catch (error) {
+      console.log('⚠️ Could not announce model name:', (error as Error).message);
+    }
+  }
+
+  private async clickPreferenceAndAnnounceModel(preference: 'top' | 'bottom'): Promise<void> {
+    // Import spawn for running the 'say' command
+    const { spawn } = await import('child_process');
+    
+    // For now, just announce the preference until we can integrate with the browser
+    // In the future, we can use Playwright MCP to get the actual model name
+    const announcement = `Selected ${preference} video`;
+    
+    console.log(`🗣️  Announcing: ${announcement}`);
+    
+    // Use macOS built-in 'say' command with Daniel voice
+    const sayProcess = spawn('say', ['-v', 'Daniel', announcement]);
+    
+    sayProcess.on('error', (error) => {
+      console.log('⚠️ Text-to-speech error:', error.message);
+    });
+    
+    // TODO: Later integrate with Playwright MCP to click the actual preference button 
+    // on the arena page and extract the real model name from the UI
   }
 
   async cleanup(): Promise<void> {
