@@ -101,22 +101,7 @@ async function pollForCommands() {
 // Poll every 2 seconds for commands
 setInterval(pollForCommands, 2000);
 
-// TEST: Auto-click right preference every 20 seconds
-setInterval(() => {
-  console.log('🧪 Testing auto-click right preference...');
-  
-  const buttons = document.querySelectorAll('button');
-  for (const button of buttons) {
-    const text = button.textContent?.toLowerCase() || '';
-    const hasRightArrow = text.includes('→') || button.innerHTML.includes('→');
-    
-    if (hasRightArrow || text.includes('right') || text.includes('second')) {
-      console.log('🧪 Auto-clicking right preference button for testing');
-      button.click();
-      break;
-    }
-  }
-}, 20000);
+// Auto-clicking test removed - extension interaction confirmed working
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

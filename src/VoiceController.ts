@@ -51,8 +51,7 @@ export class VoiceController {
   }
 
   private startContinuousListening(): void {
-    console.log('🔊 Starting continuous voice listening...');
-    console.log('🎙️ Say "top", "bottom", "play", or "pause" to control the system');
+    console.log('🎙️ Starting audio recording...');
     
     // Use SoX to record audio in chunks
     this.recordingProcess = spawn('sox', [
@@ -70,22 +69,22 @@ export class VoiceController {
 
     if (this.recordingProcess.stderr) {
       this.recordingProcess.stderr.on('data', (data) => {
-        // Suppress sox output unless it's an error
         const message = data.toString();
-        if (message.includes('FAIL') || message.includes('ERROR')) {
-          console.error('🎤 Recording error:', message);
-        }
+        console.error('🎤 SoX output:', message.trim());
       });
     }
 
     this.recordingProcess.on('exit', (code) => {
+      console.log(`🎤 Recording finished with code: ${code}`);
       if (code === 0) {
         this.processAudioChunk();
+      } else {
+        console.error(`🎤 Recording failed with exit code: ${code}`);
       }
       
       // Restart recording for continuous listening
       if (this.isListening) {
-        setTimeout(() => this.startContinuousListening(), 100);
+        setTimeout(() => this.startContinuousListening(), 1000);
       }
     });
 
@@ -109,7 +108,7 @@ export class VoiceController {
       const transcription = await this.transcribeAudio(this.tempAudioFile);
       
       if (transcription.trim()) {
-        console.log(`🗣️ Heard: "${transcription}"`);
+        console.log(`🗣️ "${transcription.trim()}"`);
         await this.processCommand(transcription.toLowerCase().trim());
       }
 
@@ -178,7 +177,7 @@ export class VoiceController {
       if (command.includes(cmd)) {
         const handler = this.commandHandlers.get(cmd);
         if (handler) {
-          console.log(`🎯 Executing command: ${cmd}`);
+          console.log(`✨ KEYWORD DETECTED: "${cmd}" - Executing action`);
           await handler();
           return;
         }

@@ -41,8 +41,6 @@ export class PuppeteerDisplayManager {
   async updateVideos(topVideoUrl: string, bottomVideoUrl: string, prompt: string): Promise<void> {
     if (!this.topPage || !this.bottomPage) return;
     
-    console.log('🎬 Updating Puppeteer video displays...');
-    
     // Update TOP page
     if (topVideoUrl) {
       await this.loadVideoPage(this.topPage, topVideoUrl, 'TOP', prompt);

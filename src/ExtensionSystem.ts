@@ -36,19 +36,25 @@ export class ExtensionSystem {
     // Receive video data from extension
     this.app.post('/update', (req, res) => {
       const videoData: VideoData = req.body;
-      console.log('📥 Received from extension:', videoData);
       
       // Store the video data
       this.currentVideoData = videoData;
       
-      // Update display if we have valid video URLs
+      // Update display if we have valid video URLs (only log if new videos)
       if (videoData.top && videoData.bottom && this.displayManager) {
+        const hasNewVideos = !this.currentVideoData || 
+                            this.currentVideoData.top !== videoData.top || 
+                            this.currentVideoData.bottom !== videoData.bottom;
+        
         this.displayManager.updateVideos(
           videoData.top,
           videoData.bottom,
           videoData.prompt
         );
-        console.log('🖥️ Updated video display');
+        
+        if (hasNewVideos) {
+          console.log('🎬 New videos loaded:', videoData.prompt);
+        }
       }
       
       res.sendStatus(204);
@@ -70,9 +76,7 @@ export class ExtensionSystem {
       
       res.json({ commands });
       
-      if (commands.length > 0) {
-        console.log(`📤 Sent ${commands.length} commands to extension:`, commands);
-      }
+      // Silently send commands to reduce spam
     });
   }
 
@@ -114,7 +118,6 @@ export class ExtensionSystem {
 
   private handleVoiceCommand(command: string) {
     const cmd = command.toLowerCase().trim();
-    console.log(`🎯 Processing command: "${cmd}"`);
     
     switch (cmd) {
       case 'top':
@@ -136,7 +139,7 @@ export class ExtensionSystem {
           type: 'play_videos',
           data: { timestamp: Date.now() }
         });
-        console.log('📤 Queued play command for extension');
+        console.log('▶️ Playing videos');
         break;
         
       case 'pause':
@@ -147,7 +150,7 @@ export class ExtensionSystem {
           type: 'pause_videos', 
           data: { timestamp: Date.now() }
         });
-        console.log('📤 Queued pause command for extension');
+        console.log('⏸️ Pausing videos');
         break;
         
       default:
@@ -158,15 +161,13 @@ export class ExtensionSystem {
   private commandQueue: Array<{type: string, data: any}> = [];
 
   private selectPreference(preference: 'top' | 'bottom') {
-    console.log(`🎯 Selecting ${preference} preference via extension...`);
+    console.log(`🎯 Selecting ${preference.toUpperCase()} video`);
     
     // Add command to queue for extension to poll
     this.commandQueue.push({
       type: 'select_preference',
       data: { preference, timestamp: Date.now() }
     });
-    
-    console.log(`📤 Queued ${preference} preference command for extension`);
   }
 
   async cleanup(): Promise<void> {
