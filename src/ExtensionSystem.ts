@@ -100,7 +100,7 @@ export class ExtensionSystem {
 
     // Debug endpoint to request current page state
     this.app.post('/request-page-state', (req, res) => {
-      console.log('🔍 Requesting current page state from extension...');
+      // Silently request page state (no logging to reduce spam)
       
       // Add command to queue for extension to poll
       this.commandQueue.push({
@@ -214,7 +214,7 @@ export class ExtensionSystem {
 
   private async selectPreference(preference: 'top' | 'bottom') {
     const displayNumber = preference === 'top' ? '1' : '2';
-    console.log(`🎯 ${displayNumber}`);
+    console.log(`🎯 Voting for option ${displayNumber}`);
     
     // Add command to queue for extension to poll
     this.commandQueue.push({
@@ -222,30 +222,9 @@ export class ExtensionSystem {
       data: { preference, timestamp: Date.now() }
     });
 
-    // Test Daniel TTS immediately
-    const { spawn } = await import('child_process');
-    const testMessage = `Selected ${displayNumber}`;
-    console.log(`🗣️ Test TTS: ${testMessage}`);
-    
-    try {
-      const sayProcess = spawn('say', ['-v', 'Daniel', testMessage], {
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-      
-      sayProcess.on('error', (error) => {
-        console.log('⚠️ Daniel TTS test failed:', error.message);
-      });
-      
-      sayProcess.on('close', (code) => {
-        console.log(`🔊 Daniel TTS finished with code: ${code}`);
-      });
-      
-      sayProcess.stderr.on('data', (data) => {
-        console.log('🔊 Daniel TTS stderr:', data.toString());
-      });
-    } catch (error) {
-      console.log('⚠️ Failed to spawn Daniel TTS:', (error as Error).message);
-    }
+    // NO immediate TTS announcement - wait for model detection
+    console.log(`🤐 Daniel will stay silent until model names are detected`);
+    console.log(`📝 Model name announcement will happen automatically when extension detects them`);
 
     // Model name announcement will happen automatically when the extension detects them
   }

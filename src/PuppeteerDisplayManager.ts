@@ -64,11 +64,17 @@ export class PuppeteerDisplayManager {
     // Update page 1
     if (topVideoUrl && topVideoUrl.trim()) {
       await this.loadVideoPage(this.topPage, topVideoUrl, '1', prompt);
+    } else {
+      // Load waiting page that will poll for data
+      await this.loadVideoPage(this.topPage, '', '1', 'Trying to connect to extension...');
     }
     
     // Update page 2
     if (bottomVideoUrl && bottomVideoUrl.trim()) {
       await this.loadVideoPage(this.bottomPage, bottomVideoUrl, '2', prompt);
+    } else {
+      // Load waiting page that will poll for data
+      await this.loadVideoPage(this.bottomPage, '', '2', 'Trying to connect to extension...');
     }
     
     // Auto-play videos after loading if not paused
@@ -200,6 +206,9 @@ export class PuppeteerDisplayManager {
           
           <script>
               const video = document.getElementById('mainVideo');
+              const windowNumber = '${title}';
+              let pollCount = 0;
+              let hasVideoData = ${videoUrl ? 'true' : 'false'};
               
               function togglePlay() {
                   if (!video) return;
@@ -221,6 +230,52 @@ export class PuppeteerDisplayManager {
                   video.muted = !video.muted;
               }
               
+              // Poll backend for video data if we don't have any
+              async function pollForVideoData() {
+                  if (hasVideoData) return; // Stop polling if we already have video data
+                  
+                  pollCount++;
+                  console.log(\`[Window \${windowNumber}] Polling attempt \${pollCount} for video data...\`);
+                  
+                  try {
+                      const response = await fetch('http://localhost:7777/status');
+                      if (response.ok) {
+                          console.log(\`[Window \${windowNumber}] Backend is alive, requesting video data...\`);
+                          
+                          // Request page state to trigger extension to send video data
+                          await fetch('http://localhost:7777/request-page-state', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ source: 'puppeteer-window-' + windowNumber })
+                          });
+                      }
+                  } catch (error) {
+                      console.log(\`[Window \${windowNumber}] Backend not available: \${error.message}\`);
+                  }
+                  
+                  // Stop polling after 1 minute (60 attempts at 1 second intervals)
+                  if (pollCount >= 60) {
+                      console.log(\`[Window \${windowNumber}] Stopped polling after 1 minute, reverting to waiting state\`);
+                      
+                      // Revert to original waiting message
+                      const headerDiv = document.querySelector('.header .prompt');
+                      if (headerDiv) {
+                          headerDiv.textContent = 'Waiting for video data from extension...';
+                      }
+                      
+                      // Update main content back to waiting state
+                      const videoContainer = document.querySelector('.video-container');
+                      if (videoContainer) {
+                          videoContainer.innerHTML = '<div style="opacity:0.8; font-size: 1.1rem;">Waiting for video...</div>';
+                      }
+                      
+                      return;
+                  }
+                  
+                  // Continue polling every second
+                  setTimeout(pollForVideoData, 1000);
+              }
+              
               // Auto-play videos when they load (unless explicitly paused)
               if (video) {
                   video.addEventListener('loadeddata', () => {
@@ -231,6 +286,14 @@ export class PuppeteerDisplayManager {
                           });
                       }
                   });
+              }
+              
+              // Start polling if we don't have video data
+              if (!hasVideoData) {
+                  console.log(\`[Window \${windowNumber}] No video data, starting to poll backend...\`);
+                  setTimeout(pollForVideoData, 2000); // Start after 2 seconds
+              } else {
+                  console.log(\`[Window \${windowNumber}] Already has video data, no polling needed\`);
               }
           </script>
       </body>
