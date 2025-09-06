@@ -1,11 +1,18 @@
 import { ExtensionSystem } from './ExtensionSystem';
 
 async function main() {
+  // Check for --allowLongDownload flag
+  const allowLongDownload = process.argv.includes('--allowLongDownload');
+  
   const system = new ExtensionSystem();
   
   try {
     console.log('🎬 Starting AI Video Ranking Voice Control System...');
-    await system.initialize();
+    if (allowLongDownload) {
+      console.log('🔄 Long download mode enabled - will use base model (may download 139MB)');
+    }
+    
+    await system.initialize(allowLongDownload);
     
     console.log('✅ System initialized successfully!');
     console.log('📱 Voice commands: "top", "bottom", "play", "pause"');

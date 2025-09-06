@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "dev:base": "tsx src/index.ts --allowLongDownload",
     "start": "node dist/index.js",
     "test-voice": "tsx test-voice-only.ts",
     "test-voice-logic": "tsx test-voice-logic.ts"

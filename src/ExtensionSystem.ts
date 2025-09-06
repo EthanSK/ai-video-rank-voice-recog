@@ -94,7 +94,7 @@ export class ExtensionSystem {
     });
   }
 
-  async initialize(): Promise<void> {
+  async initialize(allowLongDownload: boolean = false): Promise<void> {
     console.log('🚀 Starting Extension-based Video Ranking System...');
     
     // Start HTTP server
@@ -121,7 +121,7 @@ export class ExtensionSystem {
         this.handleVoiceCommand(command);
       };
       
-      await this.voiceController.initialize();
+      await this.voiceController.initialize(allowLongDownload);
       console.log('🎤 Voice recognition system initialized successfully');
     } catch (error) {
       console.log('⚠️ Voice recognition failed to start:', (error as Error).message);

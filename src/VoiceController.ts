@@ -11,11 +11,16 @@ export class VoiceController {
   private tempAudioFile = path.join(os.tmpdir(), 'voice_control_audio.wav');
   private audioBuffer: string[] = [];
   private processingInProgress = false;
+  private isDownloadingModel = false;
+  private allowLongDownload = false;
   
   public onCommand: ((command: string) => void) | null = null;
 
-  async initialize(): Promise<void> {
+  async initialize(allowLongDownload: boolean = false): Promise<void> {
     console.log('🎤 Initializing voice controller...');
+    
+    // Set model preference based on flag
+    this.allowLongDownload = allowLongDownload;
     
     // Check if whisper is available (you'll need to install it separately)
     try {
@@ -55,8 +60,8 @@ export class VoiceController {
   private startContinuousListening(): void {
     console.log('🎙️ Starting improved real-time speech recognition...');
     
-    // Use longer chunks (3 seconds) for better speech recognition
-    // This gives Whisper more context while still being reasonably responsive
+    // Use shorter chunks (1.5 seconds) for faster response
+    // Shorter chunks = faster detection but less context for Whisper
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -71,7 +76,7 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '3'
+      'trim', '0', '1.5'  // Reduced from 3 to 1.5 seconds
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
     });
@@ -89,9 +94,17 @@ export class VoiceController {
         } catch {}
       }
       
-      // Restart recording for continuous listening
+      // Restart recording for continuous listening - but wait longer if downloading with allowLongDownload
       if (this.isListening) {
-        setTimeout(() => this.startContinuousListening(), 200);
+        let restartDelay = 100; // Default 100ms
+        
+        // If downloading and we allow long downloads, wait much longer before restarting
+        if (this.isDownloadingModel && this.allowLongDownload) {
+          restartDelay = 60000; // Wait 1 minute before restarting
+          console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
+        }
+        
+        setTimeout(() => this.startContinuousListening(), restartDelay);
       }
     });
 
@@ -107,6 +120,14 @@ export class VoiceController {
   private async processAudioChunk(audioFile: string): Promise<void> {
     if (this.processingInProgress) {
       // Drop this chunk to avoid overlapping processing and file contention
+      try {
+        if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+      } catch {}
+      return;
+    }
+
+    // If model is downloading and we don't allow long downloads, skip processing
+    if (this.isDownloadingModel && !this.allowLongDownload) {
       try {
         if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
       } catch {}
@@ -160,7 +181,7 @@ export class VoiceController {
       const whisperPath = path.join(process.cwd(), 'venv', 'bin', 'whisper');
       const whisperArgs = [
         audioFile,
-        '--model', 'base',  // Better accuracy than tiny
+        '--model', 'base',  // Always use base model for better accuracy
         '--output_format', 'txt',
         '--output_dir', path.dirname(audioFile),
         '--verbose', 'False',  // Disable verbose for cleaner logs
@@ -183,11 +204,37 @@ export class VoiceController {
 
       if (whisperProcess.stderr) {
         whisperProcess.stderr.on('data', (data) => {
-          error += data.toString();
+          const msg = data.toString();
+          error += msg;
+          
+          // Check if model is downloading (always using base model now)
+          if (msg.includes('downloading') || msg.includes('%|') || msg.includes('MiB/s')) {
+            if (!this.isDownloadingModel) {
+              this.isDownloadingModel = true;
+              if (this.allowLongDownload) {
+                console.log('🤖 Base model downloading - allowing time to complete...');
+              } else {
+                console.log('🤖 Base model downloading - use --allowLongDownload flag to avoid interruption');
+              }
+            }
+            
+            // Show download progress if allowing long download
+            if (this.allowLongDownload && (msg.includes('%|') || msg.includes('MiB/s'))) {
+              console.log('📥 Download progress:', msg.trim());
+            }
+          }
         });
       }
 
       whisperProcess.on('exit', (code) => {
+        // Reset download flag if it was downloading
+        if (this.isDownloadingModel) {
+          this.isDownloadingModel = false;
+          if (code === 0) {
+            console.log('🤖 Base model download completed - voice recognition ready!');
+          }
+        }
+        
         if (code === 0) {
           // Read the generated text file
           const textFile = audioFile.replace('.wav', '.txt');
@@ -225,13 +272,35 @@ export class VoiceController {
         fallbackProcess.on('error', () => reject(err));
       });
       
-      // Timeout for transcription
-      setTimeout(() => {
+      // Dynamic timeout - much longer if allowing long downloads, or if currently downloading
+      let timeoutMs = 5000; // Default 5 seconds
+      if (this.allowLongDownload) {
+        timeoutMs = 300000; // 5 minutes if flag is set
+      }
+      
+      const timeoutId = setTimeout(() => {
         if (!whisperProcess.killed) {
+          // Don't kill if currently downloading and we allow long downloads
+          if (this.isDownloadingModel && this.allowLongDownload) {
+            console.log('🤖 Download in progress, extending timeout...');
+            // Restart timeout for another 5 minutes
+            setTimeout(() => {
+              if (!whisperProcess.killed) {
+                console.log('🤖 Download taking too long, killing process');
+                whisperProcess.kill('SIGTERM');
+                resolve('');
+              }
+            }, 300000);
+            return;
+          }
+          
+          if (this.allowLongDownload) {
+            console.log('🤖 Base model processing taking too long, killing process');
+          }
           whisperProcess.kill('SIGTERM');
           resolve(''); // Return empty instead of error for timeout
         }
-      }, 10000); // 10 second timeout
+      }, timeoutMs);
     });
   }
 
