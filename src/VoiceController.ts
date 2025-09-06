@@ -9,7 +9,6 @@ export class VoiceController {
   private commandHandlers: Map<string, () => Promise<void>> = new Map();
   private isListening = false;
   private tempAudioFile = path.join(os.tmpdir(), 'voice_control_audio.wav');
-  private processingInProgress = false;
   private isDownloadingModel = false;
   private allowLongDownload = false;
   private isMutedForTTS = false; // New: mute voice recognition during TTS
@@ -21,6 +20,9 @@ export class VoiceController {
     
     // Set model preference based on flag
     this.allowLongDownload = allowLongDownload;
+    
+    // Show current audio device
+    await this.showAudioDevice();
     
     // Check if whisper is available (you'll need to install it separately)
     try {
@@ -64,9 +66,9 @@ export class VoiceController {
       this.recordingProcess = null;
     }
     
-    console.log('🎙️ Starting overlapping continuous speech recognition...');
+    console.log('🎙️ Starting parallel continuous speech recognition...');
     
-    // Use 5-second chunks with 2.5-second overlap for better coverage
+    // Use 2-second chunks recorded every 2 seconds for perfect continuous coverage
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -81,7 +83,7 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '5',  // 5 seconds - longer chunks for better accuracy
+      'trim', '0', '2',  // 2 seconds - perfect for continuous processing
       'gain', '-n'        // Normalize audio levels
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
@@ -111,12 +113,12 @@ export class VoiceController {
           }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
-          // Simple restart after 2.5 seconds for overlapping 5-second chunks
+          // Restart immediately for continuous 2-second chunks
           setTimeout(() => {
             if (this.isListening) {
               this.startContinuousListening();
             }
-          }, 2500); // 2.5 second intervals for overlapping 5-second chunks
+          }, 2000); // 2 second intervals for perfect coverage
         }
       }
     });
@@ -139,13 +141,8 @@ export class VoiceController {
   }
 
   private async processAudioChunk(audioFile: string): Promise<void> {
-    if (this.processingInProgress) {
-      // Drop this chunk to avoid overlapping processing and file contention
-      try {
-        if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
-      } catch {}
-      return;
-    }
+    // Allow multiple whisper processes to run in parallel for continuous processing
+    // No need to drop chunks - process them all
 
     // Skip processing if muted for TTS
     if (this.isMutedForTTS) {
@@ -170,18 +167,19 @@ export class VoiceController {
     
     const stats = fs.statSync(audioFile);
     
-    // Only process if there's meaningful audio (adjusted for 5-second chunks)
-    if (stats.size < 15000) {
+    // Only process if there's meaningful audio (adjusted for 2-second chunks)
+    if (stats.size < 6000) {
       console.log(`🔇 Audio chunk too small (${stats.size} bytes, likely silence), skipping`);
       try { fs.unlinkSync(audioFile); } catch {}
       return;
     }
     
-    console.log(`🎵 Processing ${(stats.size / 1024).toFixed(1)}KB audio chunk (5-second recording)`);
-
-    this.processingInProgress = true;
+    console.log(`🎵 Processing ${(stats.size / 1024).toFixed(1)}KB audio chunk (2-second recording) [PARALLEL]`);
 
     try {
+      // Play audio chunk for debugging before processing
+      await this.playAudioChunk(audioFile);
+      
       // Use whisper to transcribe the audio chunk
       const transcription = await this.transcribeAudio(audioFile);
       
@@ -205,8 +203,6 @@ export class VoiceController {
           fs.unlinkSync(audioFile);
         }
       } catch {}
-    } finally {
-      this.processingInProgress = false;
     }
   }
 
@@ -357,8 +353,8 @@ export class VoiceController {
         fallbackProcess.on('error', () => rejectOnce(err));
       });
       
-      // Dynamic timeout - longer for 5-second chunks
-      let timeoutMs = 10000; // Default 10 seconds for 5-second audio chunks
+      // Dynamic timeout - optimized for 2-second chunks
+      let timeoutMs = 6000; // Default 6 seconds for 2-second audio chunks
       if (this.allowLongDownload) {
         timeoutMs = 300000; // 5 minutes if flag is set
       }
@@ -456,6 +452,68 @@ export class VoiceController {
   unmuteAfterTTS(): void {
     console.log('🔊 Unmuting voice recognition after TTS');
     this.isMutedForTTS = false;
+  }
+
+  // Show current audio input device
+  private async showAudioDevice(): Promise<void> {
+    return new Promise((resolve) => {
+      const process = spawn('system_profiler', ['SPAudioDataType'], { stdio: 'pipe' });
+      let output = '';
+      
+      if (process.stdout) {
+        process.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+      }
+      
+      process.on('exit', () => {
+        const lines = output.split('\n');
+        const inputDevices = lines.filter(line => 
+          line.includes('Input') || line.includes('Microphone') || line.includes('Built-in')
+        );
+        
+        if (inputDevices.length > 0) {
+          console.log('🎙️ Audio input devices:');
+          inputDevices.forEach(device => {
+            console.log(`   ${device.trim()}`);
+          });
+        } else {
+          console.log('🎙️ Using default CoreAudio input device');
+        }
+        resolve();
+      });
+      
+      process.on('error', () => {
+        console.log('🎙️ Using default CoreAudio input device');
+        resolve();
+      });
+    });
+  }
+
+  // Play audio chunk for debugging
+  private async playAudioChunk(audioFile: string): Promise<void> {
+    return new Promise((resolve) => {
+      console.log('🔊 Playing audio chunk for debugging...');
+      const playProcess = spawn('afplay', [audioFile], { stdio: 'ignore' });
+      
+      playProcess.on('exit', () => {
+        console.log('🔊 Audio chunk playback finished');
+        resolve();
+      });
+      
+      playProcess.on('error', () => {
+        console.log('⚠️ Could not play audio chunk (afplay not available)');
+        resolve();
+      });
+      
+      // Don't wait too long for playback
+      setTimeout(() => {
+        if (!playProcess.killed) {
+          playProcess.kill();
+        }
+        resolve();
+      }, 3000);
+    });
   }
 
   async cleanup(): Promise<void> {
