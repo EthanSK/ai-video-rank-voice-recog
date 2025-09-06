@@ -54,7 +54,7 @@ export class ExtensionSystem {
         );
         
         if (hasNewVideos) {
-          console.log('🎬 New videos loaded:', videoData.prompt);
+          console.log('🎬 New videos loaded:', videoData.prompt.substring(0, 80) + '...');
         }
       }
       
@@ -78,6 +78,19 @@ export class ExtensionSystem {
       res.json({ commands });
       
       // Silently send commands to reduce spam
+    });
+
+    // Debug endpoint to request current page state
+    this.app.post('/request-page-state', (req, res) => {
+      console.log('🔍 Requesting current page state from extension...');
+      
+      // Add command to queue for extension to poll
+      this.commandQueue.push({
+        type: 'extract_videos',
+        data: { timestamp: Date.now() }
+      });
+      
+      res.json({ success: true });
     });
   }
 
@@ -126,6 +139,13 @@ export class ExtensionSystem {
     console.log('');
     console.log('🎤 Voice recognition is now running with improved real-time processing!');
     console.log('📝 All speech will be logged in real-time for debugging');
+    
+    // Start periodic debug logging
+    this.startDebugLogging();
+  }
+  
+  private startDebugLogging() {
+    // Remove debug logging - it's working and too verbose
   }
 
   private handleVoiceCommand(command: string) {
@@ -151,7 +171,6 @@ export class ExtensionSystem {
           type: 'play_videos',
           data: { timestamp: Date.now() }
         });
-        console.log('▶️ Playing videos');
         break;
         
       case 'pause':
@@ -162,7 +181,6 @@ export class ExtensionSystem {
           type: 'pause_videos', 
           data: { timestamp: Date.now() }
         });
-        console.log('⏸️ Pausing videos');
         break;
         
       default:
@@ -173,7 +191,7 @@ export class ExtensionSystem {
   private commandQueue: Array<{type: string, data: any}> = [];
 
   private selectPreference(preference: 'top' | 'bottom') {
-    console.log(`🎯 Selecting ${preference.toUpperCase()} video`);
+    console.log(`🎯 ${preference.toUpperCase()}`);
     
     // Add command to queue for extension to poll
     this.commandQueue.push({

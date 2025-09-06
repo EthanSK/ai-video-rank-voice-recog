@@ -132,10 +132,8 @@ export class VoiceController {
       const transcription = await this.transcribeAudio(audioFile);
       
       if (transcription.trim()) {
-        console.log(`🗣️  SPEECH DETECTED: "${transcription.trim()}"`);
+        console.log(`🗣️ "${transcription.trim()}"`);
         await this.processCommand(transcription.toLowerCase().trim());
-      } else {
-        console.log('🔇 Whisper returned no transcription');
       }
 
       // Clean up the temporary file
@@ -158,20 +156,17 @@ export class VoiceController {
 
   private async transcribeAudio(audioFile: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      console.log('🤖 Starting Whisper transcription...');
-      
       // Try virtual environment whisper path first, then system path
       const whisperPath = path.join(process.cwd(), 'venv', 'bin', 'whisper');
       const whisperArgs = [
         audioFile,
-        '--model', 'tiny',  // Fast but less accurate model for real-time
+        '--model', 'base',  // Better accuracy than tiny
         '--output_format', 'txt',
         '--output_dir', path.dirname(audioFile),
-        '--verbose', 'True',  // Enable verbose for debugging
-        '--language', 'en'    // Force English for better performance
+        '--verbose', 'False',  // Disable verbose for cleaner logs
+        '--language', 'en',    // Force English
+        '--task', 'transcribe'  // Explicit transcribe task
       ];
-
-      console.log(`🤖 Running: ${whisperPath} ${whisperArgs.join(' ')}`);
       
       const whisperProcess = spawn(whisperPath, whisperArgs, { 
         stdio: ['pipe', 'pipe', 'pipe'] 
@@ -182,44 +177,34 @@ export class VoiceController {
 
       if (whisperProcess.stdout) {
         whisperProcess.stdout.on('data', (data) => {
-          const message = data.toString();
-          output += message;
-          console.log('🤖 Whisper stdout:', message.trim());
+          output += data.toString();
         });
       }
 
       if (whisperProcess.stderr) {
         whisperProcess.stderr.on('data', (data) => {
-          const message = data.toString();
-          error += message;
-          console.log('🤖 Whisper stderr:', message.trim());
+          error += data.toString();
         });
       }
 
       whisperProcess.on('exit', (code) => {
-        console.log(`🤖 Whisper finished with code: ${code}`);
         if (code === 0) {
           // Read the generated text file
           const textFile = audioFile.replace('.wav', '.txt');
           if (fs.existsSync(textFile)) {
             const transcription = fs.readFileSync(textFile, 'utf8');
             fs.unlinkSync(textFile); // Clean up
-            console.log(`🤖 Whisper transcription: "${transcription.trim()}"`);
             resolve(transcription);
           } else {
-            console.log('🤖 No transcription file generated');
             resolve('');
           }
         } else {
-          console.error(`🤖 Whisper failed with code ${code}: ${error}`);
           reject(new Error(`Whisper failed: ${error}`));
         }
       });
 
       whisperProcess.on('error', (err) => {
-        console.error('🤖 Whisper process error:', err);
         // Try system whisper as fallback
-        console.log('🤖 Trying system whisper...');
         const fallbackProcess = spawn('whisper', whisperArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
         
         fallbackProcess.on('exit', (code) => {
@@ -240,10 +225,9 @@ export class VoiceController {
         fallbackProcess.on('error', () => reject(err));
       });
       
-      // Increase timeout for better transcription quality
+      // Timeout for transcription
       setTimeout(() => {
         if (!whisperProcess.killed) {
-          console.log('🤖 Whisper timeout, killing process');
           whisperProcess.kill('SIGTERM');
           resolve(''); // Return empty instead of error for timeout
         }
@@ -252,37 +236,27 @@ export class VoiceController {
   }
 
   private async processCommand(command: string): Promise<void> {
-    console.log(`🎯 Processing command: "${command}"`);
-    
     // Look for command keywords with better matching (check for pause first to avoid play conflicts)
     const commands = ['pause', 'play', 'top', 'bottom']; // Reorder to check pause before play
     
     for (const cmd of commands) {
-      if (command.includes(cmd)) {
-        console.log(`✨ COMMAND KEYWORD FOUND: "${cmd}"`);
-        
+      if (command.includes(cmd)) {        
         const handler = this.commandHandlers.get(cmd);
         if (handler) {
-          console.log(`🎬 Executing handler for: "${cmd}"`);
           try {
             await handler();
           } catch (error) {
             console.error(`❌ Error executing handler for "${cmd}":`, error);
           }
-        } else {
-          console.log(`⚠️ No handler registered for command: "${cmd}"`);
         }
         
         // Also call the onCommand callback if set
         if (this.onCommand) {
-          console.log(`📞 Calling onCommand callback with: "${cmd}"`);
           this.onCommand(cmd);
         }
         return;
       }
     }
-    
-    console.log(`❓ No matching command found in: "${command}"`);
   }
 
   registerCommand(command: string, handler: () => Promise<void>): void {

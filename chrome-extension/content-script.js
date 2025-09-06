@@ -3,54 +3,81 @@ console.log('🎬 AI Video Ranking Extension loaded');
 
 class VideoExtractor {
   constructor() {
-    this.websocket = null;
+    this.backendUrl = 'http://localhost:7777';
     this.isConnected = false;
-    this.connectToBackend();
+    this.checkBackendConnection();
     this.setupVideoMonitoring();
+    this.setupCommandPolling();
   }
 
-  connectToBackend() {
+  async checkBackendConnection() {
     try {
-      this.websocket = new WebSocket('ws://localhost:8080');
-      
-      this.websocket.onopen = () => {
-        console.log('✅ Connected to Node.js backend');
+      const response = await fetch(`${this.backendUrl}/status`);
+      if (response.ok) {
+        console.log('✅ Connected to Node.js backend on port 7777');
         this.isConnected = true;
-        this.sendMessage({ type: 'extension_connected' });
-      };
-
-      this.websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        this.handleBackendMessage(data);
-      };
-
-      this.websocket.onclose = () => {
-        console.log('❌ Disconnected from backend, retrying in 5s...');
-        this.isConnected = false;
-        setTimeout(() => this.connectToBackend(), 5000);
-      };
-
-      this.websocket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
+      } else {
+        throw new Error('Backend not responding');
+      }
     } catch (error) {
-      console.error('Failed to connect to backend:', error);
-      setTimeout(() => this.connectToBackend(), 5000);
+      console.log('❌ Backend not available, retrying in 5s...', error.message);
+      this.isConnected = false;
+      setTimeout(() => this.checkBackendConnection(), 5000);
     }
   }
 
-  sendMessage(data) {
-    if (this.isConnected && this.websocket.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify(data));
+  async sendToBackend(endpoint, data) {
+    if (!this.isConnected) {
+      console.log('⚠️ Backend not connected, skipping send');
+      return;
     }
-  }
-
-  handleBackendMessage(data) {
-    console.log('📨 Message from backend:', data);
     
-    switch (data.type) {
+    try {
+      const response = await fetch(`${this.backendUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to send data to backend:', response.status);
+      }
+    } catch (error) {
+      console.error('Error sending data to backend:', error);
+      this.isConnected = false;
+      setTimeout(() => this.checkBackendConnection(), 5000);
+    }
+  }
+
+  setupCommandPolling() {
+    // Poll for commands from backend every 2 seconds
+    setInterval(async () => {
+      if (!this.isConnected) return;
+      
+      try {
+        const response = await fetch(`${this.backendUrl}/get-commands`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.commands && result.commands.length > 0) {
+            result.commands.forEach(command => {
+              this.handleBackendCommand(command);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error polling commands:', error);
+      }
+    }, 2000);
+  }
+
+  handleBackendCommand(command) {
+    console.log('📨 Command from backend:', command);
+    
+    switch (command.type) {
       case 'select_preference':
-        this.selectPreference(data.preference);
+        this.selectPreference(command.data.preference);
         break;
       case 'play_videos':
         this.playVideos();
@@ -102,31 +129,41 @@ class VideoExtractor {
     const videos = document.querySelectorAll('video');
     console.log(`Found ${videos.length} video elements`);
     
+    // Log video count
+    if (videos.length > 0) {
+      console.log(`📺 Found ${videos.length} videos`);
+    }
+    
     if (videos.length >= 2) {
-      // Extract video URLs
+      // Extract video URLs using the ExtensionSystem expected format
       const videoData = {
-        topVideo: videos[0].currentSrc || videos[0].src,
-        bottomVideo: videos[1].currentSrc || videos[1].src,
-        prompt: this.extractPrompt(),
-        timestamp: Date.now()
+        top: videos[0].currentSrc || videos[0].src,
+        bottom: videos[1].currentSrc || videos[1].src,
+        prompt: this.extractPrompt()
       };
       
-      console.log('🎬 Extracted video data:', videoData);
+      console.log('🎬 Sending videos to backend');
       
-      this.sendMessage({
-        type: 'videos_extracted',
-        data: videoData
-      });
+      // Send to backend using HTTP
+      this.sendToBackend('/update', videoData);
       
       // Store in extension storage
       chrome.storage.local.set({ lastVideoData: videoData });
     } else {
-      console.log('⚠️ Not enough videos found');
+      console.log('⚠️ Not enough videos found - need at least 2 videos');
+      console.log('🔍 Looking for video elements in the entire page...');
       
-      // Send empty state
-      this.sendMessage({
-        type: 'no_videos_found',
-        message: 'Waiting for videos to load...'
+      // More comprehensive search
+      const allVideos = document.querySelectorAll('video, [src*=".mp4"], [src*=".webm"], source');
+      console.log(`Found ${allVideos.length} potential video elements`);
+      
+      allVideos.forEach((element, index) => {
+        console.log(`Potential video ${index + 1}:`, {
+          tagName: element.tagName,
+          src: element.src,
+          type: element.type,
+          className: element.className
+        });
       });
     }
   }

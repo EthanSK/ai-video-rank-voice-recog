@@ -221,7 +221,7 @@ export class PuppeteerDisplayManager {
   async playVideos(): Promise<void> {
     if (!this.topPage || !this.bottomPage) return;
     
-    console.log('▶️ Playing videos in Puppeteer windows');
+    console.log('▶️ Playing videos');
     
     await Promise.all([
       this.topPage.evaluate(() => {
@@ -238,7 +238,7 @@ export class PuppeteerDisplayManager {
   async pauseVideos(): Promise<void> {
     if (!this.topPage || !this.bottomPage) return;
     
-    console.log('⏸️ Pausing videos in Puppeteer windows');
+    console.log('⏸️ Pausing videos');
     
     await Promise.all([
       this.topPage.evaluate(() => {
