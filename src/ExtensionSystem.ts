@@ -153,7 +153,7 @@ export class ExtensionSystem {
     console.log('   2. Navigate to artificialanalysis.ai/text-to-video/arena');
     console.log('   3. Solve Cloudflare manually in your browser');
     console.log('   4. Extension will automatically stream video data');
-    console.log('   5. Use voice commands: "top", "bottom", "play", "pause"');
+    console.log('   5. Use voice commands: "left", "right", "play", "pause"');
     console.log('');
     console.log('🎤 Voice recognition is now running with improved real-time processing!');
     console.log('📝 All speech will be logged in real-time for debugging');
@@ -170,19 +170,15 @@ export class ExtensionSystem {
     const cmd = command.toLowerCase().trim();
     
     switch (cmd) {
-      case 'top':
       case 'left':
+      case 'top':
       case 'first':
-      case '1':
-      case 'one':
         await this.selectPreference('top');
         break;
         
-      case 'bottom':
       case 'right':
+      case 'bottom':
       case 'second':
-      case '2':
-      case 'two':
         await this.selectPreference('bottom');
         break;
         
@@ -213,8 +209,8 @@ export class ExtensionSystem {
   private commandQueue: Array<{type: string, data: any}> = [];
 
   private async selectPreference(preference: 'top' | 'bottom') {
-    const displayNumber = preference === 'top' ? '1' : '2';
-    console.log(`🎯 Voting for option ${displayNumber}`);
+    const displaySide = preference === 'top' ? 'left' : 'right';
+    console.log(`🎯 Voting for ${displaySide} option`);
     
     // Add command to queue for extension to poll
     this.commandQueue.push({

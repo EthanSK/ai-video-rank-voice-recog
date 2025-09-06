@@ -13,7 +13,6 @@ export class VoiceController {
   private isDownloadingModel = false;
   private allowLongDownload = false;
   private isMutedForTTS = false; // New: mute voice recognition during TTS
-  private overlappingRecording = false; // Track if we're doing overlapping recording
   
   public onCommand: ((command: string) => void) | null = null;
 
@@ -112,31 +111,12 @@ export class VoiceController {
           }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
-          // Start overlapping recording immediately, then regular restart after 2.5s
-          if (!this.overlappingRecording) {
-            this.overlappingRecording = true;
-            // Start next recording immediately for overlap
-            setTimeout(() => {
-              if (this.isListening) {
-                this.startContinuousListening();
-              }
-            }, 50);
-            
-            // Reset overlap flag and start normal cycle
-            setTimeout(() => {
-              this.overlappingRecording = false;
-              if (this.isListening) {
-                this.startContinuousListening();
-              }
-            }, 2500); // 2.5 second overlap
-          } else {
-            // Normal restart cycle
-            setTimeout(() => {
-              if (this.isListening) {
-                this.startContinuousListening();
-              }
-            }, 2500); // 2.5 second intervals for 5-second chunks
-          }
+          // Simple restart after 2.5 seconds for overlapping 5-second chunks
+          setTimeout(() => {
+            if (this.isListening) {
+              this.startContinuousListening();
+            }
+          }, 2500); // 2.5 second intervals for overlapping 5-second chunks
         }
       }
     });
@@ -412,21 +392,18 @@ export class VoiceController {
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
     
-    // Check for number commands first (more specific patterns)
-    if (this.containsNumber(command, '1') || this.containsWord(command, 'one') || 
-        this.containsWord(command, 'first') || this.containsWord(command, 'top') || 
-        this.containsWord(command, 'left')) {
-      console.log('🎯 Detected command for option 1');
-      this.executeCommand('top');
+    // Check for left/right commands 
+    if (this.containsWord(command, 'left') || this.containsWord(command, 'first') || 
+        this.containsWord(command, 'top')) {
+      console.log('🎯 Detected command: left');
+      this.executeCommand('top'); // Still maps to 'top' internally for compatibility
       return;
     }
     
-    if (this.containsNumber(command, '2') || this.containsWord(command, 'two') || 
-        this.containsWord(command, 'too') || this.containsWord(command, 'to') ||
-        this.containsWord(command, 'second') || this.containsWord(command, 'bottom') || 
-        this.containsWord(command, 'right')) {
-      console.log('🎯 Detected command for option 2 (including too/to)'); 
-      this.executeCommand('bottom');
+    if (this.containsWord(command, 'right') || this.containsWord(command, 'second') || 
+        this.containsWord(command, 'bottom')) {
+      console.log('🎯 Detected command: right'); 
+      this.executeCommand('bottom'); // Still maps to 'bottom' internally for compatibility
       return;
     }
     
@@ -441,12 +418,6 @@ export class VoiceController {
     }
     
     console.log(`❓ No matching command found in: "${command}"`);
-  }
-
-  private containsNumber(text: string, number: string): boolean {
-    // Match the number as a standalone word or at word boundaries
-    const regex = new RegExp(`\\b${number}\\b`, 'i');
-    return regex.test(text);
   }
 
   private containsWord(text: string, word: string): boolean {

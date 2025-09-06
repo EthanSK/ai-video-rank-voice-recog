@@ -87,8 +87,8 @@ export class PuppeteerDisplayManager {
   }
   
   private async loadVideoPage(page: Page, videoUrl: string, title: string, prompt: string) {
-    // Only show prompt in window 2 (bottom)
-    const showPrompt = title === '2';
+    // Show prompt in both windows now
+    const showPrompt = true;
     
     const html = `
       <!DOCTYPE html>
@@ -110,27 +110,28 @@ export class PuppeteerDisplayManager {
               
               .header {
                   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  padding: ${showPrompt ? '20px' : '15px'};
+                  padding: 10px;
                   text-align: center;
                   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                  min-height: fit-content;
               }
               
               .title {
-                  font-size: 2.5rem;
+                  font-size: 2rem;
                   font-weight: bold;
-                  margin-bottom: ${showPrompt ? '15px' : '0'};
+                  margin-bottom: ${showPrompt ? '8px' : '0'};
                   text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
               }
               
               .prompt {
-                  font-size: 1.1rem;
+                  font-size: 0.9rem;
                   opacity: 0.9;
                   max-width: 800px;
                   margin: 0 auto;
-                  line-height: 1.4;
+                  line-height: 1.2;
                   background: rgba(0,0,0,0.2);
-                  padding: 15px;
-                  border-radius: 10px;
+                  padding: 8px;
+                  border-radius: 8px;
                   border: 1px solid rgba(255,255,255,0.1);
               }
               
@@ -139,13 +140,15 @@ export class PuppeteerDisplayManager {
                   display: flex;
                   justify-content: center;
                   align-items: center;
-                  padding: 20px;
+                  padding: 5px;
                   background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
               }
               
               video {
-                  max-width: 90%;
-                  max-height: 90%;
+                  width: 100%;
+                  height: 100%;
+                  max-width: 98%;
+                  max-height: 98%;
                   border-radius: 15px;
                   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
                   object-fit: contain;
