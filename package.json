@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "test-voice": "tsx test-voice-only.ts",
     "test-voice-logic": "tsx test-voice-logic.ts",
-    "test-memory": "tsx test-memory-improvements.ts"
+    "test-memory": "tsx test-memory-improvements.ts",
+    "test-continuous": "tsx test-continuous-operation.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
