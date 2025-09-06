@@ -79,6 +79,7 @@ class VideoExtractor {
     
     switch (command.type) {
       case 'select_preference':
+        this.setLastVoiceCommand(command.data.preference);
         this.selectPreference(command.data.preference);
         break;
       case 'play_videos':
@@ -209,17 +210,17 @@ class VideoExtractor {
       
       if (preference === 'top' && (hasLeftArrow || text.includes('left') || text.includes('first'))) {
         console.log('✅ Clicking top/left preference button');
-        button.click();
         
-        // Start high frequency polling for model names after voting
-        this.startHighFrequencyPolling();
+        // Start IMMEDIATE high frequency polling BEFORE clicking
+        this.startUltraHighFrequencyPolling();
+        button.click();
         return;
       } else if (preference === 'bottom' && (hasRightArrow || text.includes('right') || text.includes('second'))) {
         console.log('✅ Clicking bottom/right preference button');
-        button.click();
         
-        // Start high frequency polling for model names after voting
-        this.startHighFrequencyPolling();
+        // Start IMMEDIATE high frequency polling BEFORE clicking
+        this.startUltraHighFrequencyPolling();
+        button.click();
         return;
       }
     }
@@ -260,88 +261,137 @@ class VideoExtractor {
     }, 300);
   }
 
+  startUltraHighFrequencyPolling() {
+    console.log('🚀🚀 Starting ULTRA high frequency polling for model names...');
+    
+    // Clear any existing polling
+    if (this.voteDetectionInterval) {
+      clearInterval(this.voteDetectionInterval);
+    }
+    if (this.ultraVoteDetectionInterval) {
+      clearInterval(this.ultraVoteDetectionInterval);
+    }
+    
+    // Poll every 50ms for 5 seconds immediately after clicking
+    let pollCount = 0;
+    this.ultraVoteDetectionInterval = setInterval(() => {
+      this.extractAndSendModelNames();
+      pollCount++;
+      
+      // Stop after 5 seconds (100 polls)
+      if (pollCount >= 100) {
+        clearInterval(this.ultraVoteDetectionInterval);
+        this.ultraVoteDetectionInterval = null;
+        console.log('🛑 Stopped ultra high frequency polling');
+        
+        // Fall back to regular high frequency polling
+        this.startHighFrequencyPolling();
+      }
+    }, 50);
+  }
+
   extractAndSendModelNames() {
     // Look for model names that appear after voting
-    // Based on the DOM investigation, they appear in divs with green/red colors and arrows
+    // Based on Playwright investigation, model names appear in simple text elements briefly after voting
     const modelElements = [];
     const debugInfo = [];
     
-    // More comprehensive search - look for the specific patterns from our Playwright investigation
-    const selectors = [
-      '.text-green-500',  // Green upvote text
-      '.text-red-500',    // Red downvote text
-      '[class*="upvote"]',
-      '[class*="downvote"]',
-      '[class*="green-500"]',
-      '[class*="red-500"]',
-      '.animate-arena-upvote',
-      '.animate-arena-downvote'
-    ];
+    // SUPER AGGRESSIVE: Search ALL text elements for model names
+    const allElements = document.querySelectorAll('*');
+    let foundAnyModelText = false;
     
-    selectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      debugInfo.push(`${selector}: ${elements.length} elements`);
-      
-      elements.forEach(element => {
-        const text = element.textContent?.trim();
-        const classList = element.className;
-        
-        debugInfo.push(`  Element: "${text}" (classes: ${classList})`);
-        
-        if (text && this.looksLikeModelName(text)) {
-          const isGreen = classList.includes('green') || classList.includes('upvote');
-          const isRed = classList.includes('red') || classList.includes('downvote');
-          
-          if (isGreen) {
-            modelElements.push({
-              name: text,
-              preference: 'preferred',
-              type: 'upvote'
-            });
-          } else if (isRed) {
-            modelElements.push({
-              name: text,
-              preference: 'not-preferred',
-              type: 'downvote'
-            });
-          }
-        }
-      });
-    });
-    
-    // Also do a broader search for any model-like text
-    const allElements = document.querySelectorAll('div, span, p');
-    let modelLikeTexts = [];
     allElements.forEach(element => {
       const text = element.textContent?.trim();
-      if (text && this.looksLikeModelName(text)) {
-        modelLikeTexts.push(`"${text}" in ${element.tagName}.${element.className}`);
+      
+      // Skip if element has child elements (we want leaf text nodes)
+      if (!text || element.children.length > 0) return;
+      
+      if (this.looksLikeModelName(text)) {
+        foundAnyModelText = true;
+        
+        // Try to determine preference based on position/context
+        const rect = element.getBoundingClientRect();
+        const isLeftSide = rect.left < window.innerWidth / 2;
+        
+        // Look at parent elements for clues about preference
+        let preference = 'unknown';
+        let currentEl = element;
+        while (currentEl && currentEl.parentElement) {
+          const parentText = currentEl.parentElement.textContent?.toLowerCase() || '';
+          const classList = currentEl.parentElement.className?.toLowerCase() || '';
+          
+          // Check if this element appears after voting (common indicators)
+          if (classList.includes('green') || classList.includes('success') || classList.includes('preferred')) {
+            preference = 'preferred';
+            break;
+          } else if (classList.includes('red') || classList.includes('error') || classList.includes('not-preferred')) {
+            preference = 'not-preferred';
+            break;
+          }
+          
+          currentEl = currentEl.parentElement;
+        }
+        
+        // If we can't determine preference from classes, use position heuristic
+        // The user clicks left (top) or right (bottom), so we can infer from most recent click
+        if (preference === 'unknown') {
+          // Since we detect immediately after clicking, assume left=preferred for left click, right=preferred for right click
+          // This is imperfect but better than nothing
+          preference = isLeftSide ? 'left-side' : 'right-side';
+        }
+        
+        modelElements.push({
+          name: text,
+          preference: preference,
+          type: 'detected',
+          position: `${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}`,
+          element: element.tagName + (element.className ? '.' + element.className : '')
+        });
+        
+        debugInfo.push(`FOUND MODEL: "${text}" at ${rect.left.toFixed(0)}, ${rect.top.toFixed(0)} (${element.tagName})`);
       }
     });
     
-    if (modelLikeTexts.length > 0) {
-      debugInfo.push(`Model-like texts found: ${modelLikeTexts.join(', ')}`);
+    // If we found model names, try to be smarter about which is preferred
+    if (modelElements.length === 2) {
+      // When there are exactly 2 models, we can make better inferences
+      // The most recent voice command determines which should be "preferred"
+      if (this.lastVoiceCommand === 'top' || this.lastVoiceCommand === 'left') {
+        // Top/left click - left model is preferred
+        modelElements.forEach(model => {
+          const isLeft = parseFloat(model.position.split(',')[0]) < window.innerWidth / 2;
+          model.preference = isLeft ? 'preferred' : 'not-preferred';
+        });
+      } else if (this.lastVoiceCommand === 'bottom' || this.lastVoiceCommand === 'right') {
+        // Bottom/right click - right model is preferred  
+        modelElements.forEach(model => {
+          const isLeft = parseFloat(model.position.split(',')[0]) < window.innerWidth / 2;
+          model.preference = isLeft ? 'not-preferred' : 'preferred';
+        });
+      }
     }
+    
+    debugInfo.push(`Total elements scanned: ${allElements.length}`);
+    debugInfo.push(`Found any model text: ${foundAnyModelText}`);
     
     // Update debug UI
     this.updateDebugUI(modelElements, debugInfo);
     
-    // Only send if we found model names and they're different from what we last sent
+    // Always send if we found model names - don't check for duplicates during rapid polling
     if (modelElements.length > 0) {
-      const currentModelData = JSON.stringify(modelElements);
-      if (this.lastModelData !== currentModelData) {
-        console.log('🏷️ Found model names:', modelElements);
-        this.lastModelData = currentModelData;
-        
-        // Send model names to backend
-        this.sendToBackend('/model-names', {
-          models: modelElements,
-          timestamp: Date.now()
-        });
-      }
-    } else {
-      console.log('🔍 No model names detected. Debug info:', debugInfo);
+      console.log('🏷️ FOUND MODEL NAMES:', modelElements);
+      
+      // Send model names to backend
+      this.sendToBackend('/model-names', {
+        models: modelElements,
+        timestamp: Date.now()
+      });
     }
+  }
+  
+  // Store the last voice command so we can infer preference
+  setLastVoiceCommand(command) {
+    this.lastVoiceCommand = command;
   }
   
   looksLikeModelName(text) {
