@@ -9,6 +9,8 @@ export class VoiceController {
   private commandHandlers: Map<string, () => Promise<void>> = new Map();
   private isListening = false;
   private tempAudioFile = path.join(os.tmpdir(), 'voice_control_audio.wav');
+  
+  public onCommand: ((command: string) => void) | null = null;
 
   async initialize(): Promise<void> {
     console.log('🎤 Initializing voice controller...');
@@ -30,9 +32,9 @@ export class VoiceController {
     return new Promise((resolve, reject) => {
       // Try virtual environment path first, then system path
       const whisperPath = path.join(process.cwd(), 'venv', 'bin', 'whisper');
-      const process = spawn(whisperPath, ['--help'], { stdio: 'pipe' });
+      const whisperProcess = spawn(whisperPath, ['--help'], { stdio: 'pipe' });
       
-      process.on('error', () => {
+      whisperProcess.on('error', () => {
         // Fallback to system whisper
         const fallbackProcess = spawn('whisper', ['--help'], { stdio: 'pipe' });
         fallbackProcess.on('error', () => reject(new Error('Whisper not found')));
@@ -41,7 +43,7 @@ export class VoiceController {
           else reject(new Error('Whisper not working'));
         });
       });
-      process.on('exit', (code) => {
+      whisperProcess.on('exit', (code) => {
         if (code === 0) resolve();
         else reject(new Error('Whisper not working'));
       });
@@ -184,7 +186,7 @@ export class VoiceController {
     }
   }
 
-  onCommand(command: string, handler: () => Promise<void>): void {
+  registerCommand(command: string, handler: () => Promise<void>): void {
     this.commandHandlers.set(command, handler);
   }
 

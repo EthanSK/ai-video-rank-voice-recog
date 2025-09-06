@@ -90,12 +90,20 @@ export class ExtensionSystem {
     await this.displayManager.initialize();
     
     // Initialize voice controller
-    this.voiceController = new VoiceController();
-    this.voiceController.onCommand = (command: string) => {
-      this.handleVoiceCommand(command);
-    };
-    
-    console.log('🎤 Voice recognition ready');
+    try {
+      this.voiceController = new VoiceController();
+      this.voiceController.onCommand = (command: string) => {
+        this.handleVoiceCommand(command);
+      };
+      
+      await this.voiceController.initialize();
+      console.log('🎤 Voice recognition ready');
+    } catch (error) {
+      console.log('⚠️ Voice recognition failed to start:', error.message);
+      console.log('💡 Install dependencies:');
+      console.log('   brew install sox');
+      console.log('   pip install openai-whisper');
+    }
     console.log('📋 Instructions:');
     console.log('   1. Load chrome-extension folder in Chrome (chrome://extensions)');
     console.log('   2. Navigate to artificialanalysis.ai/text-to-video/arena');

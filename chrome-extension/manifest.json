@@ -13,10 +13,15 @@
     "run_at": "document_idle"
   }],
   "background": { 
-    "service_worker": "bg.js" 
+    "service_worker": "bg.js",
+    "persistent": false
   },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Arena Helper"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["popup.html"],
+    "matches": ["<all_urls>"]
+  }]
 }
