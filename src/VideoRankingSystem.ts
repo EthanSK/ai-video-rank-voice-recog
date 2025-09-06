@@ -74,22 +74,22 @@ export class VideoRankingSystem {
   private setupVoiceCommandHandlers(): void {
     if (!this.voiceController) return;
 
-    this.voiceController.onCommand('top', async () => {
+    this.voiceController.registerCommand('top', async () => {
       console.log('🔝 Voice command: TOP');
       await this.selectPreference('top');
     });
 
-    this.voiceController.onCommand('bottom', async () => {
+    this.voiceController.registerCommand('bottom', async () => {
       console.log('🔽 Voice command: BOTTOM');
       await this.selectPreference('bottom');
     });
 
-    this.voiceController.onCommand('play', async () => {
+    this.voiceController.registerCommand('play', async () => {
       console.log('▶️ Voice command: PLAY');
       await this.displayManager?.playVideos();
     });
 
-    this.voiceController.onCommand('pause', async () => {
+    this.voiceController.registerCommand('pause', async () => {
       console.log('⏸️ Voice command: PAUSE');
       await this.displayManager?.pauseVideos();
     });
@@ -100,7 +100,7 @@ export class VideoRankingSystem {
 
     try {
       // Human-like delay before action
-      await this.randomDelay(500, 1500);
+      await this.sleep(Math.random() * 1000 + 500);
       
       // Find the preference buttons using more reliable selectors
       const buttons = await this.originalPage.$$('button[class*="prefer"], button:has-text("Prefer this video")');
@@ -110,7 +110,7 @@ export class VideoRankingSystem {
         
         // Simulate human-like clicking
         await targetButton.hover();
-        await this.randomDelay(200, 500);
+        await this.sleep(Math.random() * 300 + 200);
         await targetButton.click();
         
         console.log(`✅ Selected ${preference} preference on original site`);
@@ -222,5 +222,9 @@ export class VideoRankingSystem {
     }
     
     console.log('🧹 Cleanup completed');
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

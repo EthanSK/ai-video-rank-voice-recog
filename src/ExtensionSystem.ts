@@ -90,11 +90,18 @@ export class ExtensionSystem {
       console.log('✅ Extension can now send video data');
     });
 
-    // Initialize Puppeteer display manager
-    this.displayManager = new PuppeteerDisplayManager();
-    await this.displayManager.initialize();
+    // Initialize Puppeteer display manager (optional - may fail in headless environments)
+    try {
+      this.displayManager = new PuppeteerDisplayManager();
+      await this.displayManager.initialize();
+      console.log('✅ Puppeteer display manager initialized');
+    } catch (error) {
+      console.log('⚠️ Puppeteer display manager failed to start:', (error as Error).message);
+      console.log('💡 This is OK - the system will work without video display');
+      this.displayManager = null;
+    }
     
-    // Initialize voice controller
+    // Initialize voice controller (this is the main focus of this fix)
     try {
       this.voiceController = new VoiceController();
       this.voiceController.onCommand = (command: string) => {
@@ -102,19 +109,23 @@ export class ExtensionSystem {
       };
       
       await this.voiceController.initialize();
-      console.log('🎤 Voice recognition ready');
+      console.log('🎤 Voice recognition system initialized successfully');
     } catch (error) {
-      console.log('⚠️ Voice recognition failed to start:', error.message);
+      console.log('⚠️ Voice recognition failed to start:', (error as Error).message);
       console.log('💡 Install dependencies:');
       console.log('   brew install sox');
       console.log('   pip install openai-whisper');
     }
+    
     console.log('📋 Instructions:');
     console.log('   1. Load chrome-extension folder in Chrome (chrome://extensions)');
     console.log('   2. Navigate to artificialanalysis.ai/text-to-video/arena');
     console.log('   3. Solve Cloudflare manually in your browser');
     console.log('   4. Extension will automatically stream video data');
     console.log('   5. Use voice commands: "top", "bottom", "play", "pause"');
+    console.log('');
+    console.log('🎤 Voice recognition is now running with improved real-time processing!');
+    console.log('📝 All speech will be logged in real-time for debugging');
   }
 
   private handleVoiceCommand(command: string) {

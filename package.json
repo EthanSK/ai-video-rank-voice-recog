@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test-voice": "tsx test-voice-only.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
