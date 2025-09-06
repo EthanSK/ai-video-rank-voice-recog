@@ -80,6 +80,18 @@ export class ExtensionSystem {
       // Silently send commands to reduce spam
     });
 
+    // Route to receive model names from extension for TTS
+    this.app.post('/model-names', (req, res) => {
+      const { models, timestamp } = req.body;
+      console.log('🏷️ Received model names from extension:', models);
+      
+      if (models && models.length > 0) {
+        this.handleModelNames(models);
+      }
+      
+      res.json({ success: true });
+    });
+
     // Debug endpoint to request current page state
     this.app.post('/request-page-state', (req, res) => {
       console.log('🔍 Requesting current page state from extension...');
@@ -155,12 +167,16 @@ export class ExtensionSystem {
       case 'top':
       case 'left':
       case 'first':
+      case '1':
+      case 'one':
         await this.selectPreference('top');
         break;
         
       case 'bottom':
       case 'right':
       case 'second':
+      case '2':
+      case 'two':
         await this.selectPreference('bottom');
         break;
         
@@ -191,7 +207,8 @@ export class ExtensionSystem {
   private commandQueue: Array<{type: string, data: any}> = [];
 
   private async selectPreference(preference: 'top' | 'bottom') {
-    console.log(`🎯 ${preference.toUpperCase()}`);
+    const displayNumber = preference === 'top' ? '1' : '2';
+    console.log(`🎯 ${displayNumber}`);
     
     // Add command to queue for extension to poll
     this.commandQueue.push({
@@ -199,33 +216,78 @@ export class ExtensionSystem {
       data: { preference, timestamp: Date.now() }
     });
 
-    // Use Playwright to click the preference and get the model name for TTS
+    // Test Daniel TTS immediately
+    const { spawn } = await import('child_process');
+    const testMessage = `Selected ${displayNumber}`;
+    console.log(`🗣️ Test TTS: ${testMessage}`);
+    
     try {
-      await this.clickPreferenceAndAnnounceModel(preference);
+      const sayProcess = spawn('say', ['-v', 'Daniel', testMessage], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      
+      sayProcess.on('error', (error) => {
+        console.log('⚠️ Daniel TTS test failed:', error.message);
+      });
+      
+      sayProcess.on('close', (code) => {
+        console.log(`🔊 Daniel TTS finished with code: ${code}`);
+      });
+      
+      sayProcess.stderr.on('data', (data) => {
+        console.log('🔊 Daniel TTS stderr:', data.toString());
+      });
     } catch (error) {
-      console.log('⚠️ Could not announce model name:', (error as Error).message);
+      console.log('⚠️ Failed to spawn Daniel TTS:', (error as Error).message);
     }
+
+    // Model name announcement will happen automatically when the extension detects them
   }
 
-  private async clickPreferenceAndAnnounceModel(preference: 'top' | 'bottom'): Promise<void> {
+
+  private async handleModelNames(models: Array<{ name: string, preference: string, type: string }>): Promise<void> {
+    console.log('🔍 Processing model names:', models);
+    
+    // Find the preferred model (the one that was voted for)
+    const preferredModel = models.find(model => model.preference === 'preferred');
+    
     // Import spawn for running the 'say' command
     const { spawn } = await import('child_process');
     
-    // For now, just announce the preference until we can integrate with the browser
-    // In the future, we can use Playwright MCP to get the actual model name
-    const announcement = `Selected ${preference} video`;
-    
-    console.log(`🗣️  Announcing: ${announcement}`);
-    
-    // Use macOS built-in 'say' command with Daniel voice
-    const sayProcess = spawn('say', ['-v', 'Daniel', announcement]);
-    
-    sayProcess.on('error', (error) => {
-      console.log('⚠️ Text-to-speech error:', error.message);
-    });
-    
-    // TODO: Later integrate with Playwright MCP to click the actual preference button 
-    // on the arena page and extract the real model name from the UI
+    if (preferredModel) {
+      const modelName = preferredModel.name;
+      console.log(`🗣️  Announcing selected model: ${modelName}`);
+      
+      // Use macOS built-in 'say' command with Daniel voice to announce the selected model
+      const announcement = `Selected ${modelName}`;
+      const sayProcess = spawn('say', ['-v', 'Daniel', announcement]);
+      
+      sayProcess.on('error', (error) => {
+        console.log('⚠️ Text-to-speech error:', error.message);
+      });
+      
+      sayProcess.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ Successfully announced: ${announcement}`);
+        }
+      });
+    } else {
+      console.log('⚠️ No preferred model found in model data - announcing fallback message');
+      
+      // Fallback message when no model name could be retrieved
+      const fallbackMessage = "I'm retarded";
+      const sayProcess = spawn('say', ['-v', 'Daniel', fallbackMessage]);
+      
+      sayProcess.on('error', (error) => {
+        console.log('⚠️ Text-to-speech error:', error.message);
+      });
+      
+      sayProcess.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ Successfully announced fallback: ${fallbackMessage}`);
+        }
+      });
+    }
   }
 
   async cleanup(): Promise<void> {

@@ -4,6 +4,9 @@ export class PuppeteerDisplayManager {
   private browser: Browser | null = null;
   private topPage: Page | null = null;
   private bottomPage: Page | null = null;
+  private currentTopUrl: string = '';
+  private currentBottomUrl: string = '';
+  private isPaused: boolean = false;
   
   async initialize(): Promise<void> {
     console.log('🚀 Launching Puppeteer for video display...');
@@ -19,16 +22,16 @@ export class PuppeteerDisplayManager {
       ]
     });
     
-    // Create TOP video page
+    // Create video page 1
     this.topPage = await this.browser.newPage();
     await this.topPage.evaluate(() => {
-      document.title = 'TOP';
+      document.title = '1';
     });
     
-    // Create BOTTOM video page  
+    // Create video page 2
     this.bottomPage = await this.browser.newPage();
     await this.bottomPage.evaluate(() => {
-      document.title = 'BOTTOM';
+      document.title = '2';
     });
     
     // Load initial waiting pages
@@ -38,25 +41,42 @@ export class PuppeteerDisplayManager {
   }
   
   async updateVideos(topVideoUrl: string, bottomVideoUrl: string, prompt: string): Promise<void> {
+    // Only update if URLs have actually changed to prevent unnecessary reloads
+    if (topVideoUrl === this.currentTopUrl && bottomVideoUrl === this.currentBottomUrl) {
+      return;
+    }
+    
+    console.log('🎬 Updating videos with new URLs');
+    this.currentTopUrl = topVideoUrl;
+    this.currentBottomUrl = bottomVideoUrl;
+    
     // Recreate pages if they were closed
     if (!this.browser) return;
     if (!this.topPage || this.topPage.isClosed()) {
       this.topPage = await this.browser.newPage();
-      await this.topPage.evaluate(() => { document.title = 'TOP'; });
+      await this.topPage.evaluate(() => { document.title = '1'; });
     }
     if (!this.bottomPage || this.bottomPage.isClosed()) {
       this.bottomPage = await this.browser.newPage();
-      await this.bottomPage.evaluate(() => { document.title = 'BOTTOM'; });
+      await this.bottomPage.evaluate(() => { document.title = '2'; });
     }
     
-    // Update TOP page
+    // Update page 1
     if (topVideoUrl && topVideoUrl.trim()) {
-      await this.loadVideoPage(this.topPage, topVideoUrl, 'TOP', prompt);
+      await this.loadVideoPage(this.topPage, topVideoUrl, '1', prompt);
     }
     
-    // Update BOTTOM page
+    // Update page 2
     if (bottomVideoUrl && bottomVideoUrl.trim()) {
-      await this.loadVideoPage(this.bottomPage, bottomVideoUrl, 'BOTTOM', prompt);
+      await this.loadVideoPage(this.bottomPage, bottomVideoUrl, '2', prompt);
+    }
+    
+    // Auto-play videos after loading if not paused
+    if (!this.isPaused) {
+      console.log('▶️ Auto-playing new videos');
+      setTimeout(async () => {
+        await this.playVideos();
+      }, 1000);
     }
   }
   
@@ -155,7 +175,7 @@ export class PuppeteerDisplayManager {
           
           <div class="video-container">
               ${videoUrl && videoUrl.trim() ? `
-              <video controls autoplay muted loop playsinline crossorigin="anonymous" id="mainVideo">
+              <video controls muted loop playsinline crossorigin="anonymous" id="mainVideo">
                   <source src="${videoUrl}" type="video/webm">
                   <source src="${videoUrl}" type="video/mp4">
                   Your browser does not support the video tag.
@@ -194,13 +214,15 @@ export class PuppeteerDisplayManager {
                   video.muted = !video.muted;
               }
               
+              // Auto-play videos when they load (unless explicitly paused)
               if (video) {
-                  // Auto-play when loaded
                   video.addEventListener('loadeddata', () => {
-                      video.play().catch(() => {
-                          // Autoplay might be blocked
-                          console.log('Autoplay blocked, user interaction required');
-                      });
+                      // Only auto-play if not in paused state
+                      if (!video.dataset.isPaused) {
+                          video.play().catch(() => {
+                              console.log('Auto-play blocked, user interaction may be required');
+                          });
+                      }
                   });
               }
           </script>
@@ -209,28 +231,53 @@ export class PuppeteerDisplayManager {
     `;
     
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    
+    // Set the pause state for the video
+    if (this.isPaused) {
+      await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (video) {
+          video.dataset.isPaused = 'true';
+          video.pause();
+        }
+      });
+    } else {
+      await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (video) {
+          delete video.dataset.isPaused;
+        }
+      });
+    }
   }
   
   private async showWaitingState() {
     if (!this.topPage || !this.bottomPage) return;
     
-    await this.loadVideoPage(this.topPage, '', 'TOP', 'Waiting for video data from extension...');
-    await this.loadVideoPage(this.bottomPage, '', 'BOTTOM', 'Waiting for video data from extension...');
+    await this.loadVideoPage(this.topPage, '', '1', 'Waiting for video data from extension...');
+    await this.loadVideoPage(this.bottomPage, '', '2', 'Waiting for video data from extension...');
   }
   
   async playVideos(): Promise<void> {
     if (!this.topPage || !this.bottomPage) return;
     
     console.log('▶️ Playing videos');
+    this.isPaused = false;
     
     await Promise.all([
       this.topPage.evaluate(() => {
         const video = document.querySelector('video');
-        if (video) video.play();
+        if (video) {
+          delete video.dataset.isPaused;
+          video.play();
+        }
       }),
       this.bottomPage.evaluate(() => {
         const video = document.querySelector('video');
-        if (video) video.play();
+        if (video) {
+          delete video.dataset.isPaused;
+          video.play();
+        }
       })
     ]);
   }
@@ -239,15 +286,22 @@ export class PuppeteerDisplayManager {
     if (!this.topPage || !this.bottomPage) return;
     
     console.log('⏸️ Pausing videos');
+    this.isPaused = true;
     
     await Promise.all([
       this.topPage.evaluate(() => {
         const video = document.querySelector('video');
-        if (video) video.pause();
+        if (video) {
+          video.dataset.isPaused = 'true';
+          video.pause();
+        }
       }),
       this.bottomPage.evaluate(() => {
         const video = document.querySelector('video');
-        if (video) video.pause();
+        if (video) {
+          video.dataset.isPaused = 'true';
+          video.pause();
+        }
       })
     ]);
   }

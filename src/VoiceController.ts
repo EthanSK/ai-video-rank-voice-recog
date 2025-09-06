@@ -60,7 +60,7 @@ export class VoiceController {
   private startContinuousListening(): void {
     console.log('🎙️ Starting continuous speech recognition...');
     
-    // Use longer chunks (8 seconds) to reduce restart frequency significantly
+    // Use 3-second chunks - balance between responsiveness and continuity
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -75,7 +75,7 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '8'  // 8 seconds for better continuity with less restarts
+      'trim', '0', '3'  // 3 seconds - better for voice command detection
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
     });
