@@ -7,7 +7,8 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "test-voice": "tsx test-voice-only.ts"
+    "test-voice": "tsx test-voice-only.ts",
+    "test-voice-logic": "tsx test-voice-logic.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

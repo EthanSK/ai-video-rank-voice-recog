@@ -90,7 +90,7 @@ ai-video-rank-voice-recog/
 ### Required Software
 
 1. **Node.js** (v18 or higher)
-2. **Chrome Browser** 
+2. **Chrome Browser** (optional - only needed for video display)
 3. **Python** with **pip**
 4. **SoX** (for audio recording)
 5. **OpenAI Whisper** (for speech recognition)
@@ -102,15 +102,40 @@ ai-video-rank-voice-recog/
 brew install sox
 ```
 
-#### 2. Install Whisper
+#### 2. Install SoX (Linux)
+```bash
+sudo apt-get install sox
+```
+
+#### 3. Install Whisper
 ```bash
 pip install openai-whisper
 ```
 
-#### 3. Install Node.js Dependencies  
+#### 4. Install Node.js Dependencies  
 ```bash
 npm install
 ```
+
+## 🎤 Voice Recognition Improvements
+
+The voice recognition system has been completely rearchitected for better real-time performance:
+
+- ✅ **Better audio chunks**: 3-second chunks instead of 1.5s for better speech context
+- ✅ **Comprehensive logging**: Detailed output for debugging speech recognition
+- ✅ **Graceful error handling**: System continues even with missing dependencies  
+- ✅ **Processing locks**: Prevents overlapping Whisper calls
+- ✅ **Isolated testing**: Test voice recognition independently with `npm run test-voice`
+
+### Testing Voice Recognition Only
+
+To test just the voice recognition system (without browser automation):
+
+```bash
+npm run test-voice
+```
+
+This will start only the voice recognition system and log all speech processing in detail.
 
 ## 📖 How It Works
 

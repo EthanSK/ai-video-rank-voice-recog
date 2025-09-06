@@ -257,8 +257,8 @@ export class VoiceController {
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
     
-    // Look for command keywords with better matching
-    const commands = ['top', 'bottom', 'play', 'pause'];
+    // Look for command keywords with better matching (check for pause first to avoid play conflicts)
+    const commands = ['pause', 'play', 'top', 'bottom']; // Reorder to check pause before play
     
     for (const cmd of commands) {
       if (command.includes(cmd)) {
