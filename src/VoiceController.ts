@@ -64,9 +64,9 @@ export class VoiceController {
       this.recordingProcess = null;
     }
     
-    console.log('🎙️ Starting continuous speech recognition...');
+    console.log('🎙️ Starting continuous speech recognition with improved reliability...');
     
-    // Use 3-second chunks - balance between responsiveness and continuity
+    // Use 4-second chunks for better speech context and reliability
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -75,13 +75,14 @@ export class VoiceController {
     this.recordingProcess = spawn('sox', [
       '-t', 'coreaudio',
       'default',
-      '-r', '16000',
-      '-c', '1',
-      '-b', '16',
+      '-r', '16000',      // 16kHz sample rate (good for speech)
+      '-c', '1',          // Mono
+      '-b', '16',         // 16-bit depth
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '3'  // 3 seconds - better for voice command detection
+      'trim', '0', '4',   // 4 seconds - longer chunks for better reliability
+      'gain', '-n'        // Normalize audio levels
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
     });
@@ -110,12 +111,12 @@ export class VoiceController {
           }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
-          // Immediate restart with minimal delay
+          // Slightly longer delay to prevent overlap issues and improve reliability
           setTimeout(() => {
             if (this.isListening) { // Double check we're still listening
               this.startContinuousListening();
             }
-          }, 100);
+          }, 500); // 500ms delay instead of 100ms for better reliability
         }
       }
     });
@@ -169,11 +170,14 @@ export class VoiceController {
     
     const stats = fs.statSync(audioFile);
     
-    // Only process if there's meaningful audio (more than just silence)
-    if (stats.size < 8000) {
+    // Only process if there's meaningful audio (adjust threshold for 4-second chunks)
+    if (stats.size < 12000) {  // Increased threshold for longer audio chunks
+      console.log('🔇 Audio chunk too small (likely silence), skipping');
       try { fs.unlinkSync(audioFile); } catch {}
       return;
     }
+    
+    console.log(`🎵 Processing audio chunk: ${(stats.size / 1024).toFixed(1)}KB`);
 
     this.processingInProgress = true;
 
@@ -210,12 +214,15 @@ export class VoiceController {
       const whisperPath = path.join(process.cwd(), 'venv', 'bin', 'whisper');
       const whisperArgs = [
         audioFile,
-        '--model', 'base',  // Always use base model for better accuracy
+        '--model', 'base',        // Base model for good accuracy/speed balance
         '--output_format', 'txt',
         '--output_dir', path.dirname(audioFile),
-        '--verbose', 'False',  // Disable verbose for cleaner logs
-        '--language', 'en',    // Force English
-        '--task', 'transcribe'  // Explicit transcribe task
+        '--verbose', 'False',     // Disable verbose for cleaner logs
+        '--language', 'en',       // Force English
+        '--task', 'transcribe',   // Explicit transcribe task
+        '--temperature', '0',     // More deterministic output
+        '--best_of', '1',         // Faster processing
+        '--beam_size', '1'        // Faster processing
       ];
       
       let whisperProcess = spawn(whisperPath, whisperArgs, { 
@@ -348,8 +355,8 @@ export class VoiceController {
         fallbackProcess.on('error', () => rejectOnce(err));
       });
       
-      // Dynamic timeout - much longer if allowing long downloads, or if currently downloading
-      let timeoutMs = 5000; // Default 5 seconds
+      // Dynamic timeout - longer for 4-second chunks and better reliability
+      let timeoutMs = 8000; // Default 8 seconds for 4-second audio chunks
       if (this.allowLongDownload) {
         timeoutMs = 300000; // 5 minutes if flag is set
       }
@@ -393,9 +400,10 @@ export class VoiceController {
     }
     
     if (this.containsNumber(command, '2') || this.containsWord(command, 'two') || 
+        this.containsWord(command, 'too') || this.containsWord(command, 'to') ||
         this.containsWord(command, 'second') || this.containsWord(command, 'bottom') || 
         this.containsWord(command, 'right')) {
-      console.log('🎯 Detected command for option 2'); 
+      console.log('🎯 Detected command for option 2 (including too/to)'); 
       this.executeCommand('bottom');
       return;
     }

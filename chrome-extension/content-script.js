@@ -9,6 +9,7 @@ class VideoExtractor {
     this.lastSentTimestamp = null; // Track when we last sent data
     this.scanCount = 0; // Track number of model detection scans
     this.currentUrl = window.location.href; // Track current URL for navigation detection
+    this.currentVotePreference = null; // Track which preference we voted for
     this.checkBackendConnection();
     this.setupVideoMonitoring();
     this.setupCommandPolling();
@@ -205,6 +206,9 @@ class VideoExtractor {
   selectPreference(preference) {
     console.log(`🎯 Selecting ${preference} preference...`);
     
+    // Store which preference we're voting for so we can interpret results correctly
+    this.currentVotePreference = preference;
+    
     // Look for preference buttons
     const buttons = document.querySelectorAll('button');
     
@@ -332,7 +336,12 @@ class VideoExtractor {
       '[class*="green-500"]',
       '[class*="red-500"]',
       '.animate-arena-upvote',
-      '.animate-arena-downvote'
+      '.animate-arena-downvote',
+      // Additional selectors to catch more model name appearances
+      'div:has(.text-green-500)',
+      'div:has(.text-red-500)',
+      'span:has(.text-green-500)', 
+      'span:has(.text-red-500)'
     ];
     
     selectors.forEach(selector => {
@@ -349,17 +358,39 @@ class VideoExtractor {
           const isGreen = classList.includes('green') || classList.includes('upvote');
           const isRed = classList.includes('red') || classList.includes('downvote');
           
+          // Enhanced detection logic
+          let preference = 'unknown';
+          let type = 'unknown';
+          
           if (isGreen) {
-            modelElements.push({
-              name: text,
-              preference: 'preferred',
-              type: 'upvote'
-            });
+            preference = 'preferred';
+            type = 'upvote';
           } else if (isRed) {
+            preference = 'not-preferred';
+            type = 'downvote';
+          } else {
+            // Check parent elements for vote indicators
+            let parentElement = element.parentElement;
+            while (parentElement && preference === 'unknown') {
+              const parentClasses = parentElement.className || '';
+              if (parentClasses.includes('green') || parentClasses.includes('upvote')) {
+                preference = 'preferred';
+                type = 'upvote';
+              } else if (parentClasses.includes('red') || parentClasses.includes('downvote')) {
+                preference = 'not-preferred';
+                type = 'downvote';
+              }
+              parentElement = parentElement.parentElement;
+            }
+          }
+          
+          if (preference !== 'unknown') {
             modelElements.push({
               name: text,
-              preference: 'not-preferred',
-              type: 'downvote'
+              preference: preference,
+              type: type,
+              selector: selector,
+              element: isGreen ? 'GREEN UPVOTE' : isRed ? 'RED DOWNVOTE' : 'PARENT DETECTED'
             });
           }
         }
@@ -397,7 +428,8 @@ class VideoExtractor {
         this.lastModelData = currentModelData;
         this.lastSentTimestamp = now;
         
-        // Send model names to backend
+        // Send model names to backend (with extra logging to debug double calls)
+        console.log('📤 SENDING MODEL DATA TO BACKEND:', modelElements);
         this.sendToBackend('/model-names', {
           models: modelElements,
           timestamp: now

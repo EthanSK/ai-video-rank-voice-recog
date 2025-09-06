@@ -235,13 +235,24 @@ export class PuppeteerDisplayManager {
                   if (hasVideoData) return; // Stop polling if we already have video data
                   
                   pollCount++;
-                  console.log(\`[Window \${windowNumber}] Polling attempt \${pollCount} for video data...\`);
+                  
+                  // Determine polling frequency: fast for first minute, then slower
+                  let nextPollDelay;
+                  if (pollCount <= 60) {
+                      // First minute: poll every second
+                      nextPollDelay = 1000;
+                      console.log(\`[Window \${windowNumber}] Fast polling attempt \${pollCount} for video data...\`);
+                  } else {
+                      // After first minute: poll every 5 seconds to avoid memory leaks
+                      nextPollDelay = 5000;
+                      if (pollCount % 12 === 1) { // Only log every minute (12 attempts * 5s = 60s)
+                          console.log(\`[Window \${windowNumber}] Slow polling (attempt \${pollCount})...\`);
+                      }
+                  }
                   
                   try {
                       const response = await fetch('http://localhost:7777/status');
                       if (response.ok) {
-                          console.log(\`[Window \${windowNumber}] Backend is alive, requesting video data...\`);
-                          
                           // Request page state to trigger extension to send video data
                           await fetch('http://localhost:7777/request-page-state', {
                               method: 'POST',
@@ -250,30 +261,24 @@ export class PuppeteerDisplayManager {
                           });
                       }
                   } catch (error) {
-                      console.log(\`[Window \${windowNumber}] Backend not available: \${error.message}\`);
+                      if (pollCount <= 60 || pollCount % 12 === 1) {
+                          console.log(\`[Window \${windowNumber}] Backend not available: \${error.message}\`);
+                      }
                   }
                   
-                  // Stop polling after 1 minute (60 attempts at 1 second intervals)
-                  if (pollCount >= 60) {
-                      console.log(\`[Window \${windowNumber}] Stopped polling after 1 minute, reverting to waiting state\`);
+                  // Switch to slow polling after 1 minute but NEVER stop completely
+                  if (pollCount === 60) {
+                      console.log(\`[Window \${windowNumber}] Switching to slow polling (every 5s) - will continue forever\`);
                       
-                      // Revert to original waiting message
+                      // Update UI to show we're still trying but less aggressively
                       const headerDiv = document.querySelector('.header .prompt');
                       if (headerDiv) {
-                          headerDiv.textContent = 'Waiting for video data from extension...';
+                          headerDiv.textContent = 'Still waiting for video data (slow polling)...';
                       }
-                      
-                      // Update main content back to waiting state
-                      const videoContainer = document.querySelector('.video-container');
-                      if (videoContainer) {
-                          videoContainer.innerHTML = '<div style="opacity:0.8; font-size: 1.1rem;">Waiting for video...</div>';
-                      }
-                      
-                      return;
                   }
                   
-                  // Continue polling every second
-                  setTimeout(pollForVideoData, 1000);
+                  // Continue polling forever (but slower after 1 minute)
+                  setTimeout(pollForVideoData, nextPollDelay);
               }
               
               // Auto-play videos when they load (unless explicitly paused)
