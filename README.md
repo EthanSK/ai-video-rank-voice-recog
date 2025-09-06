@@ -119,20 +119,42 @@ npm install
 
 ## 🎤 Voice Recognition Improvements
 
-The voice recognition system has been completely rearchitected for better real-time performance:
+The voice recognition system has been completely rearchitected for better real-time performance and **continuous operation without memory leaks**:
 
+### **Latest Fixes: Memory Leak Prevention** ✨
+- ✅ **Stable long-term operation**: Fixes memory leaks that caused degradation over time
+- ✅ **Resource management**: Limited audio file pool, proper process cleanup, timeout management
+- ✅ **Memory monitoring**: Real-time tracking of resource usage with automatic warnings
+- ✅ **Circuit breaker**: Prevents infinite restart loops with exponential backoff
+- ✅ **Comprehensive testing**: New test scripts to verify memory stability
+
+### **Previous Improvements**
 - ✅ **Better audio chunks**: 3-second chunks instead of 1.5s for better speech context
 - ✅ **Comprehensive logging**: Detailed output for debugging speech recognition
 - ✅ **Graceful error handling**: System continues even with missing dependencies  
 - ✅ **Processing locks**: Prevents overlapping Whisper calls
-- ✅ **Isolated testing**: Test voice recognition independently with `npm run test-voice`
+- ✅ **Isolated testing**: Test voice recognition independently
 
-### Testing Voice Recognition Only
+### **Testing Voice Recognition**
 
-To test just the voice recognition system (without browser automation):
+**Memory leak fixes (no hardware required):**
+```bash
+npm run test-memory
+```
 
+**Voice recognition logic (no hardware required):**
+```bash
+npm run test-voice-logic
+```
+
+**Full voice recognition (requires microphone + dependencies):**
 ```bash
 npm run test-voice
+```
+
+**Continuous operation test (2-minute stability test):**
+```bash
+npm run test-continuous
 ```
 
 This will start only the voice recognition system and log all speech processing in detail.
