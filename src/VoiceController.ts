@@ -13,6 +13,7 @@ export class VoiceController {
   private isDownloadingModel = false;
   private allowLongDownload = false;
   private isMutedForTTS = false; // New: mute voice recognition during TTS
+  private overlappingRecording = false; // Track if we're doing overlapping recording
   
   public onCommand: ((command: string) => void) | null = null;
 
@@ -64,9 +65,9 @@ export class VoiceController {
       this.recordingProcess = null;
     }
     
-    console.log('🎙️ Starting continuous speech recognition...');
+    console.log('🎙️ Starting overlapping continuous speech recognition...');
     
-    // Use 3-second chunks - balance between responsiveness and continuity
+    // Use 5-second chunks with 2.5-second overlap for better coverage
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -81,7 +82,7 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '3',  // 3 seconds - better for voice command detection
+      'trim', '0', '5',  // 5 seconds - longer chunks for better accuracy
       'gain', '-n'        // Normalize audio levels
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
@@ -111,12 +112,31 @@ export class VoiceController {
           }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
-          // Immediate restart with minimal delay
-          setTimeout(() => {
-            if (this.isListening) { // Double check we're still listening
-              this.startContinuousListening();
-            }
-          }, 100);
+          // Start overlapping recording immediately, then regular restart after 2.5s
+          if (!this.overlappingRecording) {
+            this.overlappingRecording = true;
+            // Start next recording immediately for overlap
+            setTimeout(() => {
+              if (this.isListening) {
+                this.startContinuousListening();
+              }
+            }, 50);
+            
+            // Reset overlap flag and start normal cycle
+            setTimeout(() => {
+              this.overlappingRecording = false;
+              if (this.isListening) {
+                this.startContinuousListening();
+              }
+            }, 2500); // 2.5 second overlap
+          } else {
+            // Normal restart cycle
+            setTimeout(() => {
+              if (this.isListening) {
+                this.startContinuousListening();
+              }
+            }, 2500); // 2.5 second intervals for 5-second chunks
+          }
         }
       }
     });
@@ -170,11 +190,14 @@ export class VoiceController {
     
     const stats = fs.statSync(audioFile);
     
-    // Only process if there's meaningful audio (more than just silence)
-    if (stats.size < 8000) {
+    // Only process if there's meaningful audio (adjusted for 5-second chunks)
+    if (stats.size < 15000) {
+      console.log(`🔇 Audio chunk too small (${stats.size} bytes, likely silence), skipping`);
       try { fs.unlinkSync(audioFile); } catch {}
       return;
     }
+    
+    console.log(`🎵 Processing ${(stats.size / 1024).toFixed(1)}KB audio chunk (5-second recording)`);
 
     this.processingInProgress = true;
 
@@ -183,8 +206,10 @@ export class VoiceController {
       const transcription = await this.transcribeAudio(audioFile);
       
       if (transcription.trim()) {
-        console.log(`🗣️ "${transcription.trim()}"`);
+        console.log(`🗣️ Whisper transcribed: "${transcription.trim()}"`);
         await this.processCommand(transcription.toLowerCase().trim());
+      } else {
+        console.log(`🔇 Whisper returned empty transcription (silence or unclear audio)`);
       }
 
       // Clean up the temporary file
@@ -352,8 +377,8 @@ export class VoiceController {
         fallbackProcess.on('error', () => rejectOnce(err));
       });
       
-      // Dynamic timeout - much longer if allowing long downloads, or if currently downloading
-      let timeoutMs = 5000; // Default 5 seconds
+      // Dynamic timeout - longer for 5-second chunks
+      let timeoutMs = 10000; // Default 10 seconds for 5-second audio chunks
       if (this.allowLongDownload) {
         timeoutMs = 300000; // 5 minutes if flag is set
       }
