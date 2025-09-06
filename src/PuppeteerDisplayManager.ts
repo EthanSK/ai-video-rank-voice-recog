@@ -81,6 +81,9 @@ export class PuppeteerDisplayManager {
   }
   
   private async loadVideoPage(page: Page, videoUrl: string, title: string, prompt: string) {
+    // Only show prompt in window 2 (bottom)
+    const showPrompt = title === '2';
+    
     const html = `
       <!DOCTYPE html>
       <html>
@@ -101,7 +104,7 @@ export class PuppeteerDisplayManager {
               
               .header {
                   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  padding: 20px;
+                  padding: ${showPrompt ? '20px' : '15px'};
                   text-align: center;
                   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
               }
@@ -109,16 +112,20 @@ export class PuppeteerDisplayManager {
               .title {
                   font-size: 2.5rem;
                   font-weight: bold;
-                  margin-bottom: 10px;
+                  margin-bottom: ${showPrompt ? '15px' : '0'};
                   text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
               }
               
               .prompt {
-                  font-size: 1rem;
+                  font-size: 1.1rem;
                   opacity: 0.9;
                   max-width: 800px;
                   margin: 0 auto;
                   line-height: 1.4;
+                  background: rgba(0,0,0,0.2);
+                  padding: 15px;
+                  border-radius: 10px;
+                  border: 1px solid rgba(255,255,255,0.1);
               }
               
               .video-container {
@@ -170,7 +177,7 @@ export class PuppeteerDisplayManager {
       <body>
           <div class="header">
               <div class="title">${title}</div>
-              <div class="prompt">${prompt}</div>
+              ${showPrompt ? `<div class="prompt">${prompt}</div>` : ''}
           </div>
           
           <div class="video-container">

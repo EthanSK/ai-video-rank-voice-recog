@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pageStatusEl = document.getElementById('pageStatus');
   const updateCountEl = document.getElementById('updateCount');
   const videoDataEl = document.getElementById('videoData');
+  const debugInfoEl = document.getElementById('debugInfo');
   
   // Control buttons
   const topBtn = document.getElementById('topBtn');
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Get stored video data from extension
   function updateVideoDisplay() {
-    chrome.storage.local.get(['lastVideoData', 'extractCount'], (result) => {
+    chrome.storage.local.get(['lastVideoData', 'extractCount', 'debugData'], (result) => {
       if (result.lastVideoData) {
         lastVideoData = result.lastVideoData;
         displayVideoData(lastVideoData);
@@ -63,7 +64,117 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCount = result.extractCount;
         updateCountEl.textContent = updateCount;
       }
+      
+      if (result.debugData) {
+        displayDebugInfo(result.debugData);
+      }
     });
+  }
+  
+  // Request debug info from content script
+  function getDebugInfo() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      console.log('🔍 Current tab:', tab?.url);
+      
+      if (tab && tab.url && tab.url.includes('artificialanalysis.ai')) {
+        console.log('📤 Sending get_debug_info message to content script...');
+        
+        chrome.tabs.sendMessage(tab.id, { action: 'get_debug_info' }, (response) => {
+          console.log('📥 Received response from content script:', response);
+          console.log('🔧 Chrome runtime error:', chrome.runtime.lastError);
+          
+          if (chrome.runtime.lastError) {
+            debugInfoEl.innerHTML = `<div class="loading">Error: ${chrome.runtime.lastError.message}</div>`;
+            return;
+          }
+          
+          if (response && response.debugData) {
+            console.log('✅ Valid debug data received, displaying...');
+            displayDebugInfo(response.debugData);
+            // Also store it for future reference
+            chrome.storage.local.set({ debugData: response.debugData });
+          } else {
+            console.log('❌ No debug data in response');
+            debugInfoEl.innerHTML = '<div class="loading">Content script not responding</div>';
+          }
+        });
+      } else {
+        debugInfoEl.innerHTML = '<div class="loading">Not on arena page</div>';
+      }
+    });
+  }
+  
+  // Display debug information
+  function displayDebugInfo(debugData) {
+    if (!debugData) {
+      debugInfoEl.innerHTML = '<div class="loading">No debug data</div>';
+      return;
+    }
+    
+    let html = '';
+    
+    // Scan count
+    html += `<div class="debug-row">
+      <span class="debug-label">🔍 Scans:</span>
+      <span class="debug-value">${debugData.scanCount || 0}</span>
+    </div>`;
+    
+    // Backend connection
+    html += `<div class="debug-row">
+      <span class="debug-label">📡 Backend:</span>
+      <span class="debug-value">${debugData.isConnected ? '🟢 Connected' : '🔴 Offline'}</span>
+    </div>`;
+    
+    // Last model data
+    if (debugData.lastModelData) {
+      try {
+        const models = JSON.parse(debugData.lastModelData);
+        const preferredModel = models.find(m => m.preference === 'preferred');
+        const nonPreferredModel = models.find(m => m.preference === 'not-preferred');
+        
+        if (preferredModel) {
+          html += `<div class="debug-row">
+            <span class="debug-label">✅ Preferred:</span>
+            <span class="debug-model">${preferredModel.name}</span>
+          </div>`;
+        }
+        
+        if (nonPreferredModel) {
+          html += `<div class="debug-row">
+            <span class="debug-label">❌ Against:</span>
+            <span class="debug-model not-preferred">${nonPreferredModel.name}</span>
+          </div>`;
+        }
+      } catch (e) {
+        html += `<div class="debug-row">
+          <span class="debug-label">🏷️ Models:</span>
+          <span class="debug-value">Parse error</span>
+        </div>`;
+      }
+    } else {
+      html += `<div class="debug-row">
+        <span class="debug-label">🏷️ Models:</span>
+        <span class="debug-value">None detected</span>
+      </div>`;
+    }
+    
+    // Current URL for navigation tracking
+    if (debugData.currentUrl) {
+      const urlPart = debugData.currentUrl.split('?')[0].split('/').pop();
+      html += `<div class="debug-row">
+        <span class="debug-label">🌐 Page:</span>
+        <span class="debug-value">${urlPart}</span>
+      </div>`;
+    }
+    
+    // Last update time
+    html += `<div class="debug-row">
+      <span class="debug-label">⏰ Updated:</span>
+      <span class="debug-value">${new Date().toLocaleTimeString()}</span>
+    </div>`;
+    
+    debugInfoEl.innerHTML = html;
   }
   
   // Display video data in popup
@@ -158,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     testBackendConnection();
     checkArenaPage();
     updateVideoDisplay();
+    getDebugInfo();
     refreshBtn.textContent = '🔃 Refreshing...';
     setTimeout(() => refreshBtn.textContent = '🔃 Refresh', 1000);
   });
@@ -166,12 +278,14 @@ document.addEventListener('DOMContentLoaded', () => {
   testBackendConnection();
   checkArenaPage();
   updateVideoDisplay();
+  getDebugInfo();
   
   // Auto-refresh every 3 seconds
   const interval = setInterval(() => {
     testBackendConnection();
     checkArenaPage();
     updateVideoDisplay();
+    getDebugInfo();
   }, 3000);
   
   // Cleanup when popup closes

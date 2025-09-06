@@ -8,13 +8,12 @@
     "http://localhost:7777/*"
   ],
   "content_scripts": [{
-    "matches": ["https://artificialanalysis.ai/text-to-video/arena*"],
-    "js": ["content.js"],
+    "matches": ["https://artificialanalysis.ai/*"],
+    "js": ["content-script.js"],
     "run_at": "document_idle"
   }],
   "background": { 
-    "service_worker": "bg.js",
-    "persistent": false
+    "service_worker": "bg.js"
   },
   "action": {
     "default_popup": "popup.html",

@@ -1,5 +1,5 @@
 // Content script that runs on artificialanalysis.ai
-console.log('🎬 AI Video Ranking Extension loaded');
+console.log('🎬 AI Video Ranking Extension loaded on:', window.location.href);
 
 class VideoExtractor {
   constructor() {
@@ -14,7 +14,8 @@ class VideoExtractor {
     this.setupCommandPolling();
     this.setupModelNamePolling();
     this.setupNavigationMonitoring();
-    this.createDebugUI();
+    // Disabled floating UI - using extension popup instead
+    // this.createDebugUI();
   }
 
   async checkBackendConnection() {
@@ -379,8 +380,8 @@ class VideoExtractor {
       debugInfo.push(`Model-like texts found: ${modelLikeTexts.join(', ')}`);
     }
     
-    // Update debug UI with scan count
-    this.updateDebugUI(modelElements, debugInfo);
+    // Debug UI removed - using extension popup instead
+    // this.updateDebugUI(modelElements, debugInfo);
     
     // Handle model detection logic
     if (modelElements.length > 0) {
@@ -444,59 +445,121 @@ class VideoExtractor {
   }
 
   createDebugUI() {
+    console.log('🎨 Creating debug UI...');
+    
     // Remove any existing debug panel first
     const existingPanel = document.getElementById('arena-extension-debug');
     if (existingPanel) {
       existingPanel.remove();
+      console.log('🗑️ Removed existing debug panel');
     }
     
-    // Create a debug panel in the top-right corner with more prominent styling
-    const debugPanel = document.createElement('div');
-    debugPanel.id = 'arena-extension-debug';
-    debugPanel.style.cssText = `
-      position: fixed !important;
-      top: 10px !important;
-      right: 10px !important;
-      width: 350px !important;
-      max-height: 500px !important;
-      background: rgba(0, 0, 0, 0.95) !important;
-      color: white !important;
-      padding: 15px !important;
-      border-radius: 10px !important;
-      font-family: 'Courier New', monospace !important;
-      font-size: 13px !important;
-      z-index: 999999 !important;
-      overflow-y: auto !important;
-      border: 3px solid #ff4444 !important;
-      box-shadow: 0 0 20px rgba(255, 68, 68, 0.5) !important;
-    `;
+    // Wait for body to be ready
+    const createPanel = () => {
+      if (!document.body) {
+        setTimeout(createPanel, 100);
+        return;
+      }
+      
+      // Create a debug panel in the top-right corner with MAXIMUM visibility
+      const debugPanel = document.createElement('div');
+      debugPanel.id = 'arena-extension-debug';
+      
+      // Use setAttribute to force styles
+      debugPanel.setAttribute('style', `
+        position: fixed !important;
+        top: 10px !important;
+        right: 10px !important;
+        width: 400px !important;
+        min-height: 200px !important;
+        max-height: 600px !important;
+        background: rgba(0, 0, 0, 0.98) !important;
+        color: #ffffff !important;
+        padding: 20px !important;
+        border-radius: 12px !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 14px !important;
+        font-weight: normal !important;
+        line-height: 1.4 !important;
+        z-index: 2147483647 !important;
+        overflow-y: auto !important;
+        border: 4px solid #ff0000 !important;
+        box-shadow: 0 0 30px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.2) !important;
+        pointer-events: auto !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        transform: none !important;
+        margin: 0 !important;
+        text-align: left !important;
+      `);
+      
+      debugPanel.innerHTML = `
+        <div style="font-weight: bold !important; margin-bottom: 15px !important; color: #ff4444 !important; font-size: 16px !important; text-align: center !important;">
+          🎬 ARENA EXTENSION DEBUG 🎬
+        </div>
+        <div id="debug-content" style="color: #ffffff !important; font-size: 13px !important;">
+          🚀 Extension loaded and ready...<br>
+          📡 Waiting for backend connection...<br>
+          🔍 Model detection will appear here...
+        </div>
+      `;
+      
+      // Force append to body
+      document.body.appendChild(debugPanel);
+      console.log('✅ Debug panel created and added to DOM');
+      
+      // Verify it's visible
+      setTimeout(() => {
+        const panel = document.getElementById('arena-extension-debug');
+        if (panel && panel.offsetParent !== null) {
+          console.log('✅ Debug UI is visible on page');
+        } else {
+          console.log('❌ Debug UI still not visible, trying again...');
+          // Force re-creation
+          setTimeout(() => this.createDebugUI(), 2000);
+        }
+      }, 500);
+    };
     
-    debugPanel.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 15px; color: #ff4444; font-size: 14px;">🎬 Arena Extension Debug</div>
-      <div id="debug-content">Starting model detection...</div>
-    `;
+    createPanel();
     
-    document.body.appendChild(debugPanel);
-    
-    // Make sure it stays visible
-    setTimeout(() => {
-      if (document.getElementById('arena-extension-debug')) {
-        console.log('✅ Debug UI created and visible');
-      } else {
-        console.log('❌ Debug UI not found, recreating...');
+    // Also create it periodically to ensure it stays visible
+    setInterval(() => {
+      const panel = document.getElementById('arena-extension-debug');
+      if (!panel || panel.offsetParent === null) {
+        console.log('🔄 Debug UI disappeared, recreating...');
         this.createDebugUI();
       }
-    }, 1000);
+    }, 5000);
   }
 
   updateDebugUI(modelElements, debugInfo) {
-    const debugContent = document.getElementById('debug-content');
-    if (!debugContent) return;
+    let debugContent = document.getElementById('debug-content');
+    
+    // If debug content doesn't exist, recreate the whole UI
+    if (!debugContent) {
+      console.log('🔧 Debug content missing, recreating UI...');
+      this.createDebugUI();
+      debugContent = document.getElementById('debug-content');
+    }
+    
+    if (!debugContent) {
+      console.log('❌ Still no debug content after recreation');
+      return;
+    }
     
     let content = '';
     
-    // Show scan counter
-    content += `<div style="color: #2196F3; font-weight: bold;">🔍 Scans: ${this.scanCount}</div><br>`;
+    // Show connection status
+    const connectionStatus = this.isConnected ? 
+      '<div style="color: #4CAF50; font-weight: bold;">🟢 Backend Connected</div>' :
+      '<div style="color: #f44336; font-weight: bold;">🔴 Backend Disconnected</div>';
+    
+    content += connectionStatus + '<br>';
+    
+    // Show scan counter with big numbers
+    content += `<div style="color: #2196F3; font-weight: bold; font-size: 16px;">🔍 Scans: ${this.scanCount}</div><br>`;
     
     // Show last known model if any
     if (this.lastModelData) {
@@ -504,28 +567,29 @@ class VideoExtractor {
         const lastModels = JSON.parse(this.lastModelData);
         const preferredModel = lastModels.find(m => m.preference === 'preferred');
         if (preferredModel) {
-          content += `<div style="color: #4CAF50; font-weight: bold;">🏷️ Last Known Model:</div>`;
-          content += `<div style="color: #4CAF50;">• ${preferredModel.name}</div><br>`;
+          content += `<div style="color: #4CAF50; font-weight: bold; font-size: 15px;">🏷️ LAST KNOWN MODEL:</div>`;
+          content += `<div style="color: #4CAF50; font-size: 14px; padding: 5px; background: rgba(76,175,80,0.2); border-radius: 5px; margin: 5px 0;">• ${preferredModel.name}</div><br>`;
         }
       } catch (e) {}
     }
     
     if (modelElements.length > 0) {
-      content += '<div style="color: #4CAF50; font-weight: bold;">✅ Current Models:</div>';
+      content += '<div style="color: #4CAF50; font-weight: bold; font-size: 15px;">✅ CURRENT MODELS:</div>';
       modelElements.forEach(model => {
         const color = model.preference === 'preferred' ? '#4CAF50' : '#f44336';
-        content += `<div style="color: ${color};">• ${model.name} (${model.preference})</div>`;
+        const bgColor = model.preference === 'preferred' ? 'rgba(76,175,80,0.2)' : 'rgba(244,67,54,0.2)';
+        content += `<div style="color: ${color}; padding: 5px; background: ${bgColor}; border-radius: 5px; margin: 2px 0;">• ${model.name} (${model.preference})</div>`;
       });
     } else {
-      content += '<div style="color: #ff9800;">⚠️ No current models detected</div>';
+      content += '<div style="color: #ff9800; font-size: 14px;">⚠️ No current models detected</div>';
     }
     
-    content += '<br><div style="color: #ccc; font-size: 10px;">Debug Info:</div>';
-    debugInfo.slice(0, 5).forEach(info => {
-      content += `<div style="color: #888; font-size: 10px;">${info}</div>`;
+    content += '<br><div style="color: #ccc; font-size: 12px; font-weight: bold;">DEBUG INFO:</div>';
+    debugInfo.slice(0, 3).forEach(info => {
+      content += `<div style="color: #888; font-size: 11px; margin: 2px 0;">${info}</div>`;
     });
     
-    content += `<br><div style="color: #666; font-size: 10px;">Last updated: ${new Date().toLocaleTimeString()}</div>`;
+    content += `<br><div style="color: #666; font-size: 11px; text-align: center;">Last updated: ${new Date().toLocaleTimeString()}</div>`;
     
     debugContent.innerHTML = content;
   }
@@ -536,8 +600,30 @@ const videoExtractor = new VideoExtractor();
 
 // Listen for messages from popup/background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('📨 Content script received message:', request);
+  
   if (request.action === 'extract_videos') {
     videoExtractor.extractAndSendVideos();
     sendResponse({ success: true });
+  } else if (request.action === 'get_debug_info') {
+    // Send back debug information
+    const debugData = {
+      scanCount: videoExtractor.scanCount,
+      isConnected: videoExtractor.isConnected,
+      lastModelData: videoExtractor.lastModelData,
+      lastSentTimestamp: videoExtractor.lastSentTimestamp,
+      currentUrl: videoExtractor.currentUrl,
+      timestamp: Date.now()
+    };
+    
+    console.log('📊 Sending debug data to popup:', debugData);
+    
+    sendResponse({
+      success: true,
+      debugData: debugData
+    });
   }
+  
+  // Return true to indicate we want to send a response asynchronously
+  return true;
 });
