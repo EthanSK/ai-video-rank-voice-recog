@@ -145,10 +145,10 @@ export class PuppeteerDisplayManager {
               }
               
               video {
-                  width: 100%;
-                  height: 100%;
-                  max-width: 98%;
-                  max-height: 98%;
+                  max-width: 95%;
+                  max-height: 95%;
+                  width: auto;
+                  height: auto;
                   border-radius: 15px;
                   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
                   object-fit: contain;

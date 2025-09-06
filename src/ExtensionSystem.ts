@@ -228,6 +228,7 @@ export class ExtensionSystem {
 
   private lastAnnouncedModelData: string | null = null;
   private modelCallCounter: number = 0;
+  private lastTTSTime: number = 0; // Track when Daniel last spoke
 
   private async handleModelNames(models: Array<{ name: string, preference: string, type: string }>): Promise<void> {
     console.log('🔍 RECEIVED MODEL DATA FROM EXTENSION (call #' + (++this.modelCallCounter) + '):', JSON.stringify(models, null, 2));
@@ -255,7 +256,16 @@ export class ExtensionSystem {
     
     if (preferredModel) {
       const modelName = preferredModel.name;
+      const currentTime = Date.now();
+      
+      // Check if Daniel spoke within the last second (debounce)
+      if (currentTime - this.lastTTSTime < 1000) {
+        console.log('🔇 DANIEL DEBOUNCED - spoke less than 1 second ago, skipping announcement');
+        return;
+      }
+      
       console.log(`🗣️  DANIEL WILL ANNOUNCE (ONCE): "Selected ${modelName}"`);
+      this.lastTTSTime = currentTime; // Update last speech time
       
       // Mute voice recognition before speaking
       if (this.voiceController) {
