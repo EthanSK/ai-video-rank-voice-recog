@@ -51,9 +51,9 @@ export class VoiceController {
   }
 
   private startContinuousListening(): void {
-    console.log('🎙️ Starting audio recording...');
+    console.log('🎙️ 🗣️ Real-time speech recognition active...');
     
-    // Use SoX to record audio in chunks
+    // Use SoX to record audio in shorter chunks for near real-time processing
     this.recordingProcess = spawn('sox', [
       '-t', 'coreaudio', 
       'default',  // Use default microphone on macOS
@@ -62,34 +62,25 @@ export class VoiceController {
       '-b', '16',     // 16-bit
       '-t', 'wav',    // WAV format
       this.tempAudioFile,
-      'trim', '0', '3'  // Record 3-second chunks
+      'trim', '0', '1.5'  // Record 1.5-second chunks for faster processing
     ], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'ignore', 'ignore']  // Suppress all SoX output
     });
 
-    if (this.recordingProcess.stderr) {
-      this.recordingProcess.stderr.on('data', (data) => {
-        const message = data.toString();
-        console.error('🎤 SoX output:', message.trim());
-      });
-    }
+    // No SoX output logging - completely silent
 
     this.recordingProcess.on('exit', (code) => {
-      console.log(`🎤 Recording finished with code: ${code}`);
       if (code === 0) {
         this.processAudioChunk();
-      } else {
-        console.error(`🎤 Recording failed with exit code: ${code}`);
       }
       
-      // Restart recording for continuous listening
+      // Restart recording immediately for continuous listening
       if (this.isListening) {
-        setTimeout(() => this.startContinuousListening(), 1000);
+        setTimeout(() => this.startContinuousListening(), 100);
       }
     });
 
     this.recordingProcess.on('error', (error) => {
-      console.error('🎤 Recording process error:', error);
       if (this.isListening) {
         setTimeout(() => this.startContinuousListening(), 1000);
       }
@@ -102,6 +93,12 @@ export class VoiceController {
     if (!fs.existsSync(this.tempAudioFile)) {
       return;
     }
+    
+    const stats = fs.statSync(this.tempAudioFile);
+    // Only process if there's meaningful audio (more than just silence)
+    if (stats.size < 10000) { // Skip very small files (likely silence)
+      return;
+    }
 
     try {
       // Use whisper to transcribe the audio chunk
@@ -110,6 +107,8 @@ export class VoiceController {
       if (transcription.trim()) {
         console.log(`🗣️ "${transcription.trim()}"`);
         await this.processCommand(transcription.toLowerCase().trim());
+      } else {
+        console.log('🔇 No speech detected in audio chunk');
       }
 
       // Clean up the temporary file
@@ -126,7 +125,7 @@ export class VoiceController {
       const whisperPath = path.join(process.cwd(), 'venv', 'bin', 'whisper');
       const whisperProcess = spawn(whisperPath, [
         audioFile,
-        '--model', 'base',
+        '--model', 'tiny',  // Much smaller and faster model
         '--output_format', 'txt',
         '--output_dir', path.dirname(audioFile),
         '--verbose', 'False'
@@ -143,7 +142,12 @@ export class VoiceController {
 
       if (whisperProcess.stderr) {
         whisperProcess.stderr.on('data', (data) => {
-          error += data.toString();
+          const message = data.toString();
+          error += message;
+          // Only log actual errors, not progress bars
+          if (message.includes('Error') || message.includes('Failed')) {
+            console.log('🎤 Whisper error:', message.trim());
+          }
         });
       }
 
@@ -166,6 +170,14 @@ export class VoiceController {
       whisperProcess.on('error', (err) => {
         reject(err);
       });
+      
+      // Add timeout to prevent hanging (shorter for real-time feel)
+      setTimeout(() => {
+        if (!whisperProcess.killed) {
+          whisperProcess.kill('SIGTERM');
+          resolve(''); // Return empty instead of error for timeout
+        }
+      }, 5000); // 5 second timeout for faster response
     });
   }
 

@@ -37,15 +37,16 @@ export class ExtensionSystem {
     this.app.post('/update', (req, res) => {
       const videoData: VideoData = req.body;
       
+      // Check if videos are new BEFORE updating currentVideoData
+      const hasNewVideos = !this.currentVideoData || 
+                          this.currentVideoData.top !== videoData.top || 
+                          this.currentVideoData.bottom !== videoData.bottom;
+      
       // Store the video data
       this.currentVideoData = videoData;
       
-      // Update display if we have valid video URLs (only log if new videos)
+      // Update display if we have valid video URLs
       if (videoData.top && videoData.bottom && this.displayManager) {
-        const hasNewVideos = !this.currentVideoData || 
-                            this.currentVideoData.top !== videoData.top || 
-                            this.currentVideoData.bottom !== videoData.bottom;
-        
         this.displayManager.updateVideos(
           videoData.top,
           videoData.bottom,
