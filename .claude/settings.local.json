@@ -15,7 +15,11 @@
       "Bash(pip install:*)",
       "Bash(pkill:*)",
       "Bash(npm run dev:*)",
-      "WebFetch(domain:www.browserless.io)"
+      "WebFetch(domain:www.browserless.io)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(open:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

@@ -50,6 +50,7 @@ export class VoiceController {
 
   private startContinuousListening(): void {
     console.log('🔊 Starting continuous voice listening...');
+    console.log('🎙️ Say "top", "bottom", "play", or "pause" to control the system');
     
     // Use SoX to record audio in chunks
     this.recordingProcess = spawn('sox', [

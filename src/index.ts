@@ -1,7 +1,7 @@
-import { UltraStealthSystem } from './UltraStealthSystem';
+import { ExtensionSystem } from './ExtensionSystem';
 
 async function main() {
-  const system = new UltraStealthSystem();
+  const system = new ExtensionSystem();
   
   try {
     console.log('🎬 Starting AI Video Ranking Voice Control System...');
