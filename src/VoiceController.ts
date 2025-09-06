@@ -177,8 +177,8 @@ export class VoiceController {
     console.log(`🎵 Processing ${(stats.size / 1024).toFixed(1)}KB audio chunk (2-second recording) [PARALLEL]`);
 
     try {
-      // Play audio chunk for debugging before processing
-      await this.playAudioChunk(audioFile);
+      // Play audio chunk for debugging (non-blocking - don't await)
+      this.playAudioChunk(audioFile); // No await - let it play while we process
       
       // Use whisper to transcribe the audio chunk
       const transcription = await this.transcribeAudio(audioFile);
@@ -490,30 +490,25 @@ export class VoiceController {
     });
   }
 
-  // Play audio chunk for debugging
-  private async playAudioChunk(audioFile: string): Promise<void> {
-    return new Promise((resolve) => {
-      console.log('🔊 Playing audio chunk for debugging...');
-      const playProcess = spawn('afplay', [audioFile], { stdio: 'ignore' });
-      
-      playProcess.on('exit', () => {
-        console.log('🔊 Audio chunk playback finished');
-        resolve();
-      });
-      
-      playProcess.on('error', () => {
-        console.log('⚠️ Could not play audio chunk (afplay not available)');
-        resolve();
-      });
-      
-      // Don't wait too long for playback
-      setTimeout(() => {
-        if (!playProcess.killed) {
-          playProcess.kill();
-        }
-        resolve();
-      }, 3000);
+  // Play audio chunk for debugging (non-blocking)
+  private playAudioChunk(audioFile: string): void {
+    console.log('🔊 Playing audio chunk for debugging (parallel)...');
+    const playProcess = spawn('afplay', [audioFile], { stdio: 'ignore' });
+    
+    playProcess.on('exit', () => {
+      console.log('🔊 Audio chunk playback finished');
     });
+    
+    playProcess.on('error', () => {
+      console.log('⚠️ Could not play audio chunk (afplay not available)');
+    });
+    
+    // Auto-kill after 3 seconds to prevent hanging
+    setTimeout(() => {
+      if (!playProcess.killed) {
+        playProcess.kill();
+      }
+    }, 3000);
   }
 
   async cleanup(): Promise<void> {
