@@ -279,14 +279,18 @@ export class ExtensionSystem {
       });
       
       sayProcess.on('close', (code) => {
-        // Always unmute when TTS finishes (success or failure)
-        if (this.voiceController) {
-          this.voiceController.unmuteAfterTTS();
-        }
-        
         if (code === 0) {
           console.log(`✅ Daniel announced (ONCE): ${announcement}`);
         }
+        
+        // Wait 5 seconds after TTS finishes before unmuting voice recognition
+        console.log('🔇 Keeping voice recognition muted for 5 seconds after TTS...');
+        setTimeout(() => {
+          if (this.voiceController) {
+            this.voiceController.unmuteAfterTTS();
+            console.log('🔊 Voice recognition unmuted after 5-second delay');
+          }
+        }, 5000);
       });
     } else {
       console.log('⚠️ NO PREFERRED MODEL FOUND - only non-preferred models detected');

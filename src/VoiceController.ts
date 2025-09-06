@@ -64,9 +64,9 @@ export class VoiceController {
       this.recordingProcess = null;
     }
     
-    console.log('🎙️ Starting continuous speech recognition with improved reliability...');
+    console.log('🎙️ Starting continuous speech recognition...');
     
-    // Use 4-second chunks for better speech context and reliability
+    // Use 3-second chunks - balance between responsiveness and continuity
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -81,7 +81,7 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '4',   // 4 seconds - longer chunks for better reliability
+      'trim', '0', '3',  // 3 seconds - better for voice command detection
       'gain', '-n'        // Normalize audio levels
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
@@ -111,12 +111,12 @@ export class VoiceController {
           }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
-          // Slightly longer delay to prevent overlap issues and improve reliability
+          // Immediate restart with minimal delay
           setTimeout(() => {
             if (this.isListening) { // Double check we're still listening
               this.startContinuousListening();
             }
-          }, 500); // 500ms delay instead of 100ms for better reliability
+          }, 100);
         }
       }
     });
@@ -170,14 +170,11 @@ export class VoiceController {
     
     const stats = fs.statSync(audioFile);
     
-    // Only process if there's meaningful audio (adjust threshold for 4-second chunks)
-    if (stats.size < 12000) {  // Increased threshold for longer audio chunks
-      console.log('🔇 Audio chunk too small (likely silence), skipping');
+    // Only process if there's meaningful audio (more than just silence)
+    if (stats.size < 8000) {
       try { fs.unlinkSync(audioFile); } catch {}
       return;
     }
-    
-    console.log(`🎵 Processing audio chunk: ${(stats.size / 1024).toFixed(1)}KB`);
 
     this.processingInProgress = true;
 
@@ -355,8 +352,8 @@ export class VoiceController {
         fallbackProcess.on('error', () => rejectOnce(err));
       });
       
-      // Dynamic timeout - longer for 4-second chunks and better reliability
-      let timeoutMs = 8000; // Default 8 seconds for 4-second audio chunks
+      // Dynamic timeout - much longer if allowing long downloads, or if currently downloading
+      let timeoutMs = 5000; // Default 5 seconds
       if (this.allowLongDownload) {
         timeoutMs = 300000; // 5 minutes if flag is set
       }

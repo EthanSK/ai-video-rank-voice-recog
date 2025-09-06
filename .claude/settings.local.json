@@ -20,7 +20,8 @@
       "Bash(lsof:*)",
       "Bash(open:*)",
       "Bash(npm install:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__playwright__browser_press_key"
     ],
     "deny": [],
     "ask": []

@@ -204,37 +204,40 @@ class VideoExtractor {
   }
 
   selectPreference(preference) {
-    console.log(`🎯 Selecting ${preference} preference...`);
+    console.log(`🎯 Selecting ${preference} preference using keyboard arrows...`);
     
     // Store which preference we're voting for so we can interpret results correctly
     this.currentVotePreference = preference;
     
-    // Look for preference buttons
-    const buttons = document.querySelectorAll('button');
-    
-    for (const button of buttons) {
-      const text = button.textContent?.toLowerCase() || '';
-      const hasLeftArrow = text.includes('←') || button.innerHTML.includes('←');
-      const hasRightArrow = text.includes('→') || button.innerHTML.includes('→');
-      
-      if (preference === 'top' && (hasLeftArrow || text.includes('left') || text.includes('first'))) {
-        console.log('✅ Clicking top/left preference button');
-        button.click();
-        
-        // Start high frequency polling for model names after voting
-        this.startHighFrequencyPolling();
-        return;
-      } else if (preference === 'bottom' && (hasRightArrow || text.includes('right') || text.includes('second'))) {
-        console.log('✅ Clicking bottom/right preference button');
-        button.click();
-        
-        // Start high frequency polling for model names after voting
-        this.startHighFrequencyPolling();
-        return;
-      }
+    // Use keyboard arrow keys to vote (the correct method)
+    if (preference === 'top') {
+      console.log('✅ Pressing LEFT arrow key for top preference');
+      this.simulateKeyPress('ArrowLeft');
+    } else if (preference === 'bottom') {
+      console.log('✅ Pressing RIGHT arrow key for bottom preference');
+      this.simulateKeyPress('ArrowRight');
     }
     
-    console.log('⚠️ Preference buttons not found');
+    // Start high frequency polling for model names after voting
+    this.startHighFrequencyPolling();
+  }
+
+  simulateKeyPress(keyCode) {
+    // Create and dispatch a keydown event
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: keyCode,
+      code: keyCode,
+      bubbles: true,
+      cancelable: true
+    });
+    
+    // Dispatch the event on the document
+    document.dispatchEvent(keyEvent);
+    
+    // Also try dispatching on the body element
+    document.body.dispatchEvent(keyEvent);
+    
+    console.log(`🎹 Simulated ${keyCode} key press`);
   }
 
   setupModelNamePolling() {
