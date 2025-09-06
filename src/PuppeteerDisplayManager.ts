@@ -13,6 +13,7 @@ export class PuppeteerDisplayManager {
       defaultViewport: null,
       args: [
         '--start-maximized',
+        '--autoplay-policy=no-user-gesture-required',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor'
       ]
@@ -20,14 +21,12 @@ export class PuppeteerDisplayManager {
     
     // Create TOP video page
     this.topPage = await this.browser.newPage();
-    await this.topPage.setViewport(null);
     await this.topPage.evaluate(() => {
       document.title = 'TOP';
     });
     
     // Create BOTTOM video page  
     this.bottomPage = await this.browser.newPage();
-    await this.bottomPage.setViewport(null);
     await this.bottomPage.evaluate(() => {
       document.title = 'BOTTOM';
     });
@@ -39,15 +38,24 @@ export class PuppeteerDisplayManager {
   }
   
   async updateVideos(topVideoUrl: string, bottomVideoUrl: string, prompt: string): Promise<void> {
-    if (!this.topPage || !this.bottomPage) return;
+    // Recreate pages if they were closed
+    if (!this.browser) return;
+    if (!this.topPage || this.topPage.isClosed()) {
+      this.topPage = await this.browser.newPage();
+      await this.topPage.evaluate(() => { document.title = 'TOP'; });
+    }
+    if (!this.bottomPage || this.bottomPage.isClosed()) {
+      this.bottomPage = await this.browser.newPage();
+      await this.bottomPage.evaluate(() => { document.title = 'BOTTOM'; });
+    }
     
     // Update TOP page
-    if (topVideoUrl) {
+    if (topVideoUrl && topVideoUrl.trim()) {
       await this.loadVideoPage(this.topPage, topVideoUrl, 'TOP', prompt);
     }
     
     // Update BOTTOM page
-    if (bottomVideoUrl) {
+    if (bottomVideoUrl && bottomVideoUrl.trim()) {
       await this.loadVideoPage(this.bottomPage, bottomVideoUrl, 'BOTTOM', prompt);
     }
   }
@@ -146,11 +154,15 @@ export class PuppeteerDisplayManager {
           </div>
           
           <div class="video-container">
-              <video controls autoplay muted loop id="mainVideo">
+              ${videoUrl && videoUrl.trim() ? `
+              <video controls autoplay muted loop playsinline crossorigin="anonymous" id="mainVideo">
                   <source src="${videoUrl}" type="video/webm">
                   <source src="${videoUrl}" type="video/mp4">
                   Your browser does not support the video tag.
               </video>
+              ` : `
+              <div style="opacity:0.8; font-size: 1.1rem;">Waiting for video...</div>
+              `}
           </div>
           
           <div class="controls">
@@ -163,6 +175,7 @@ export class PuppeteerDisplayManager {
               const video = document.getElementById('mainVideo');
               
               function togglePlay() {
+                  if (!video) return;
                   if (video.paused) {
                       video.play();
                   } else {
@@ -171,27 +184,31 @@ export class PuppeteerDisplayManager {
               }
               
               function restartVideo() {
+                  if (!video) return;
                   video.currentTime = 0;
                   video.play();
               }
               
               function toggleMute() {
+                  if (!video) return;
                   video.muted = !video.muted;
               }
               
-              // Auto-play when loaded
-              video.addEventListener('loadeddata', () => {
-                  video.play().catch(() => {
-                      // Autoplay might be blocked
-                      console.log('Autoplay blocked, user interaction required');
+              if (video) {
+                  // Auto-play when loaded
+                  video.addEventListener('loadeddata', () => {
+                      video.play().catch(() => {
+                          // Autoplay might be blocked
+                          console.log('Autoplay blocked, user interaction required');
+                      });
                   });
-              });
+              }
           </script>
       </body>
       </html>
     `;
     
-    await page.setContent(html);
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
   }
   
   private async showWaitingState() {

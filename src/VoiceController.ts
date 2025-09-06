@@ -57,49 +57,45 @@ export class VoiceController {
     
     // Use longer chunks (3 seconds) for better speech recognition
     // This gives Whisper more context while still being reasonably responsive
+    const audioFile = path.join(
+      os.tmpdir(),
+      `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
+    );
+
     this.recordingProcess = spawn('sox', [
-      '-t', 'coreaudio', 
-      'default',  // Use default microphone on macOS
-      '-r', '16000',  // 16kHz sample rate (good for speech)
-      '-c', '1',      // Mono
-      '-b', '16',     // 16-bit
-      '-t', 'wav',    // WAV format
-      this.tempAudioFile,
-      'trim', '0', '3'  // Record 3-second chunks for better speech context
+      '-t', 'coreaudio',
+      'default',
+      '-r', '16000',
+      '-c', '1',
+      '-b', '16',
+      '-e', 'signed-integer',
+      '-t', 'wav',
+      audioFile,
+      'trim', '0', '3'
     ], {
-      stdio: ['pipe', 'pipe', 'pipe']  // Capture all outputs for debugging
+      stdio: ['ignore', 'ignore', 'ignore']
     });
 
-    // Log SoX status for debugging
-    if (this.recordingProcess.stdout) {
-      this.recordingProcess.stdout.on('data', (data) => {
-        console.log('🎤 SoX output:', data.toString().trim());
-      });
-    }
-
-    if (this.recordingProcess.stderr) {
-      this.recordingProcess.stderr.on('data', (data) => {
-        const message = data.toString().trim();
-        if (message) {
-          console.log('🎤 SoX status:', message);
-        }
-      });
-    }
+    // Suppress SoX output completely for clean interface
+    // (all stdio: 'ignore' in spawn options)
 
     this.recordingProcess.on('exit', (code) => {
-      console.log(`🎤 SoX recording finished with code: ${code}`);
       if (code === 0) {
-        this.processAudioChunk();
+        this.processAudioChunk(audioFile);
+      } else {
+        // Clean up failed/partial file if present
+        try {
+          if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+        } catch {}
       }
       
-      // Restart recording for continuous listening, but with a small delay
+      // Restart recording for continuous listening
       if (this.isListening) {
         setTimeout(() => this.startContinuousListening(), 200);
       }
     });
 
     this.recordingProcess.on('error', (error) => {
-      console.error('🎤 SoX recording error:', error);
       if (this.isListening) {
         setTimeout(() => this.startContinuousListening(), 2000);
       }
@@ -108,33 +104,32 @@ export class VoiceController {
     this.isListening = true;
   }
 
-  private async processAudioChunk(): Promise<void> {
+  private async processAudioChunk(audioFile: string): Promise<void> {
     if (this.processingInProgress) {
-      console.log('🔄 Skipping audio processing - previous chunk still being processed');
+      // Drop this chunk to avoid overlapping processing and file contention
+      try {
+        if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+      } catch {}
       return;
     }
 
-    if (!fs.existsSync(this.tempAudioFile)) {
-      console.log('🔇 No audio file found to process');
+    if (!fs.existsSync(audioFile)) {
       return;
     }
     
-    const stats = fs.statSync(this.tempAudioFile);
-    console.log(`🎤 Processing audio chunk: ${stats.size} bytes`);
+    const stats = fs.statSync(audioFile);
     
     // Only process if there's meaningful audio (more than just silence)
-    if (stats.size < 8000) { // Lowered threshold for 3-second chunks
-      console.log('🔇 Audio chunk too small, likely silence');
-      fs.unlinkSync(this.tempAudioFile);
+    if (stats.size < 8000) {
+      try { fs.unlinkSync(audioFile); } catch {}
       return;
     }
 
     this.processingInProgress = true;
 
     try {
-      console.log('🤖 Sending audio to Whisper...');
       // Use whisper to transcribe the audio chunk
-      const transcription = await this.transcribeAudio(this.tempAudioFile);
+      const transcription = await this.transcribeAudio(audioFile);
       
       if (transcription.trim()) {
         console.log(`🗣️  SPEECH DETECTED: "${transcription.trim()}"`);
@@ -144,16 +139,18 @@ export class VoiceController {
       }
 
       // Clean up the temporary file
-      if (fs.existsSync(this.tempAudioFile)) {
-        fs.unlinkSync(this.tempAudioFile);
+      if (fs.existsSync(audioFile)) {
+        fs.unlinkSync(audioFile);
       }
       
     } catch (error) {
       console.error('🎤 Error processing audio chunk:', error);
       // Clean up the temporary file even on error
-      if (fs.existsSync(this.tempAudioFile)) {
-        fs.unlinkSync(this.tempAudioFile);
-      }
+      try {
+        if (fs.existsSync(audioFile)) {
+          fs.unlinkSync(audioFile);
+        }
+      } catch {}
     } finally {
       this.processingInProgress = false;
     }
@@ -306,18 +303,24 @@ export class VoiceController {
       this.whisperProcess.kill('SIGTERM');
     }
 
-    // Clean up temp files
-    if (fs.existsSync(this.tempAudioFile)) {
-      console.log('🗑️ Cleaning up temp audio file...');
-      fs.unlinkSync(this.tempAudioFile);
-    }
+    // Clean up temp files (legacy single file and new per-chunk files)
+    try {
+      if (fs.existsSync(this.tempAudioFile)) {
+        console.log('🗑️ Cleaning up temp audio file...');
+        fs.unlinkSync(this.tempAudioFile);
+      }
+    } catch {}
 
-    // Clean up any remaining text files
-    const tempDir = os.tmpdir();
-    const textFile = this.tempAudioFile.replace('.wav', '.txt');
-    if (fs.existsSync(textFile)) {
-      fs.unlinkSync(textFile);
-    }
+    // Remove all voice_control_audio_* chunk files and their txt outputs
+    try {
+      const tempDir = os.tmpdir();
+      const entries = fs.readdirSync(tempDir);
+      for (const entry of entries) {
+        if (entry.startsWith('voice_control_audio_') && (entry.endsWith('.wav') || entry.endsWith('.txt'))) {
+          try { fs.unlinkSync(path.join(tempDir, entry)); } catch {}
+        }
+      }
+    } catch {}
     
     console.log('✅ Voice controller cleanup completed');
   }
