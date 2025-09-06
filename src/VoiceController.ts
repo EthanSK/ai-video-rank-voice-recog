@@ -5,6 +5,7 @@ import * as os from 'os';
 
 export class VoiceController {
   private recordingProcess: ChildProcess | null = null;
+  private nextRecordingProcess: ChildProcess | null = null;
   private whisperProcess: ChildProcess | null = null;
   private commandHandlers: Map<string, () => Promise<void>> = new Map();
   private isListening = false;
@@ -60,8 +61,8 @@ export class VoiceController {
   private startContinuousListening(): void {
     console.log('🎙️ Starting improved real-time speech recognition...');
     
-    // Use shorter chunks (1.5 seconds) for faster response
-    // Shorter chunks = faster detection but less context for Whisper
+    // Use longer chunks (4 seconds) to reduce restart frequency and gaps
+    // Better balance between responsiveness and continuous coverage
     const audioFile = path.join(
       os.tmpdir(),
       `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
@@ -76,13 +77,17 @@ export class VoiceController {
       '-e', 'signed-integer',
       '-t', 'wav',
       audioFile,
-      'trim', '0', '1.5'  // Reduced from 3 to 1.5 seconds
+      'trim', '0', '4'  // Increased to 4 seconds for better continuity
     ], {
       stdio: ['ignore', 'ignore', 'ignore']
     });
 
-    // Suppress SoX output completely for clean interface
-    // (all stdio: 'ignore' in spawn options)
+    // Start the next recording process 3 seconds in to create overlap
+    setTimeout(() => {
+      if (this.isListening && !this.nextRecordingProcess) {
+        this.startNextRecording();
+      }
+    }, 3000);
 
     this.recordingProcess.on('exit', (code) => {
       if (code === 0) {
@@ -94,27 +99,97 @@ export class VoiceController {
         } catch {}
       }
       
-      // Restart recording for continuous listening - but wait longer if downloading with allowLongDownload
+      // Promote next recording to current and start a new next recording
       if (this.isListening) {
-        let restartDelay = 100; // Default 100ms
-        
         // If downloading and we allow long downloads, wait much longer before restarting
         if (this.isDownloadingModel && this.allowLongDownload) {
-          restartDelay = 60000; // Wait 1 minute before restarting
+          setTimeout(() => this.startContinuousListening(), 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
+        } else {
+          // Use the overlapping recording system for seamless continuity
+          this.recordingProcess = this.nextRecordingProcess;
+          this.nextRecordingProcess = null;
+          
+          if (this.recordingProcess) {
+            // Extract audio file from the next process for the handler
+            const nextAudioFile = this.recordingProcess.spawnargs?.[this.recordingProcess.spawnargs.length - 2] || '';
+            this.setupRecordingHandlers(this.recordingProcess, nextAudioFile);
+          } else {
+            // Fallback: start new recording immediately if overlap failed
+            setTimeout(() => this.startContinuousListening(), 50);
+          }
         }
-        
-        setTimeout(() => this.startContinuousListening(), restartDelay);
       }
     });
 
     this.recordingProcess.on('error', (error) => {
       if (this.isListening) {
-        setTimeout(() => this.startContinuousListening(), 2000);
+        setTimeout(() => this.startContinuousListening(), 1000);
       }
     });
 
     this.isListening = true;
+  }
+
+  private startNextRecording(): void {
+    if (!this.isListening) return;
+    
+    const nextAudioFile = path.join(
+      os.tmpdir(),
+      `voice_control_audio_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`
+    );
+
+    this.nextRecordingProcess = spawn('sox', [
+      '-t', 'coreaudio',
+      'default',
+      '-r', '16000',
+      '-c', '1',
+      '-b', '16',
+      '-e', 'signed-integer',
+      '-t', 'wav',
+      nextAudioFile,
+      'trim', '0', '4'
+    ], {
+      stdio: ['ignore', 'ignore', 'ignore']
+    });
+  }
+
+  private setupRecordingHandlers(process: ChildProcess, audioFile: string): void {
+    // Start the next overlapping recording 3 seconds in
+    setTimeout(() => {
+      if (this.isListening && !this.nextRecordingProcess) {
+        this.startNextRecording();
+      }
+    }, 3000);
+
+    process.on('exit', (code) => {
+      if (code === 0) {
+        this.processAudioChunk(audioFile);
+      } else {
+        try {
+          if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+        } catch {}
+      }
+      
+      if (this.isListening) {
+        this.recordingProcess = this.nextRecordingProcess;
+        this.nextRecordingProcess = null;
+        
+        if (this.recordingProcess) {
+          // Extract audio file from the next process
+          const nextAudioFile = this.recordingProcess.spawnargs?.[this.recordingProcess.spawnargs.length - 2] || '';
+          this.setupRecordingHandlers(this.recordingProcess, nextAudioFile);
+        } else {
+          setTimeout(() => this.startContinuousListening(), 50);
+        }
+      }
+    });
+
+    process.on('error', () => {
+      if (this.isListening) {
+        setTimeout(() => this.startContinuousListening(), 1000);
+      }
+    });
   }
 
   private async processAudioChunk(audioFile: string): Promise<void> {
@@ -207,8 +282,8 @@ export class VoiceController {
           const msg = data.toString();
           error += msg;
           
-          // Check if model is downloading (always using base model now)
-          if (msg.includes('downloading') || msg.includes('%|') || msg.includes('MiB/s')) {
+          // Check if model is actually downloading (not just validating)
+          if (msg.includes('re-downloading the file') || (msg.includes('%|') && msg.includes('MiB/s') && !msg.includes('100%|'))) {
             if (!this.isDownloadingModel) {
               this.isDownloadingModel = true;
               if (this.allowLongDownload) {
@@ -218,9 +293,15 @@ export class VoiceController {
               }
             }
             
-            // Show download progress if allowing long download
+            // Show download progress less frequently if allowing long download
             if (this.allowLongDownload && (msg.includes('%|') || msg.includes('MiB/s'))) {
-              console.log('📥 Download progress:', msg.trim());
+              // Only show every 10% or so to reduce spam
+              if (msg.includes('10%|') || msg.includes('20%|') || msg.includes('30%|') || 
+                  msg.includes('40%|') || msg.includes('50%|') || msg.includes('60%|') || 
+                  msg.includes('70%|') || msg.includes('80%|') || msg.includes('90%|') || 
+                  msg.includes('100%|')) {
+                console.log('📥 Download progress:', msg.trim());
+              }
             }
           }
         });
@@ -339,6 +420,11 @@ export class VoiceController {
     if (this.recordingProcess) {
       console.log('🛑 Stopping recording process...');
       this.recordingProcess.kill('SIGTERM');
+    }
+
+    if (this.nextRecordingProcess) {
+      console.log('🛑 Stopping next recording process...');
+      this.nextRecordingProcess.kill('SIGTERM');
     }
 
     if (this.whisperProcess) {
