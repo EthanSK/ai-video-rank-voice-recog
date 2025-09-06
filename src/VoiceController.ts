@@ -58,6 +58,12 @@ export class VoiceController {
   }
 
   private startContinuousListening(): void {
+    // Ensure we cleanup any existing recording process first
+    if (this.recordingProcess && !this.recordingProcess.killed) {
+      this.recordingProcess.kill('SIGTERM');
+      this.recordingProcess = null;
+    }
+    
     console.log('🎙️ Starting continuous speech recognition...');
     
     // Use 3-second chunks - balance between responsiveness and continuity
@@ -81,6 +87,9 @@ export class VoiceController {
     });
 
     this.recordingProcess.on('exit', (code) => {
+      // Clear the process reference immediately
+      this.recordingProcess = null;
+      
       if (code === 0) {
         // Process this audio chunk
         this.processAudioChunk(audioFile);
@@ -94,18 +103,34 @@ export class VoiceController {
       // Restart recording immediately for continuous operation
       if (this.isListening) {
         if (this.isDownloadingModel && this.allowLongDownload) {
-          setTimeout(() => this.startContinuousListening(), 60000);
+          setTimeout(() => {
+            if (this.isListening) { // Double check we're still listening
+              this.startContinuousListening();
+            }
+          }, 60000);
           console.log('🤖 Waiting 1 minute before restarting voice recognition to allow download...');
         } else {
           // Immediate restart with minimal delay
-          setTimeout(() => this.startContinuousListening(), 100);
+          setTimeout(() => {
+            if (this.isListening) { // Double check we're still listening
+              this.startContinuousListening();
+            }
+          }, 100);
         }
       }
     });
 
     this.recordingProcess.on('error', (error) => {
+      console.error('🎤 Recording process error:', error.message);
+      this.recordingProcess = null;
+      
       if (this.isListening) {
-        setTimeout(() => this.startContinuousListening(), 2000);
+        console.log('🎙️ Restarting voice recognition after error...');
+        setTimeout(() => {
+          if (this.isListening) { // Double check we're still listening
+            this.startContinuousListening();
+          }
+        }, 2000);
       }
     });
 
@@ -184,12 +209,44 @@ export class VoiceController {
         '--task', 'transcribe'  // Explicit transcribe task
       ];
       
-      const whisperProcess = spawn(whisperPath, whisperArgs, { 
+      let whisperProcess = spawn(whisperPath, whisperArgs, { 
         stdio: ['pipe', 'pipe', 'pipe'] 
       });
+      
+      // Store reference for cleanup
+      this.whisperProcess = whisperProcess;
 
       let output = '';
       let error = '';
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isResolved = false;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (whisperProcess && !whisperProcess.killed) {
+          whisperProcess.kill('SIGTERM');
+        }
+        this.whisperProcess = null;
+      };
+
+      const resolveOnce = (result: string) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          resolve(result);
+        }
+      };
+
+      const rejectOnce = (err: Error) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          reject(err);
+        }
+      };
 
       if (whisperProcess.stdout) {
         whisperProcess.stdout.on('data', (data) => {
@@ -228,6 +285,8 @@ export class VoiceController {
       }
 
       whisperProcess.on('exit', (code) => {
+        if (isResolved) return;
+        
         // Reset download flag if it was downloading
         if (this.isDownloadingModel) {
           this.isDownloadingModel = false;
@@ -242,35 +301,42 @@ export class VoiceController {
           if (fs.existsSync(textFile)) {
             const transcription = fs.readFileSync(textFile, 'utf8');
             fs.unlinkSync(textFile); // Clean up
-            resolve(transcription);
+            resolveOnce(transcription);
           } else {
-            resolve('');
+            resolveOnce('');
           }
         } else {
-          reject(new Error(`Whisper failed: ${error}`));
+          rejectOnce(new Error(`Whisper failed: ${error}`));
         }
       });
 
       whisperProcess.on('error', (err) => {
+        if (isResolved) return;
+        
         // Try system whisper as fallback
+        console.log('⚠️ Primary whisper failed, trying system fallback...');
         const fallbackProcess = spawn('whisper', whisperArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+        whisperProcess = fallbackProcess; // Update reference
+        this.whisperProcess = fallbackProcess;
         
         fallbackProcess.on('exit', (code) => {
+          if (isResolved) return;
+          
           if (code === 0) {
             const textFile = audioFile.replace('.wav', '.txt');
             if (fs.existsSync(textFile)) {
               const transcription = fs.readFileSync(textFile, 'utf8');
               fs.unlinkSync(textFile);
-              resolve(transcription);
+              resolveOnce(transcription);
             } else {
-              resolve('');
+              resolveOnce('');
             }
           } else {
-            reject(err);
+            rejectOnce(err);
           }
         });
 
-        fallbackProcess.on('error', () => reject(err));
+        fallbackProcess.on('error', () => rejectOnce(err));
       });
       
       // Dynamic timeout - much longer if allowing long downloads, or if currently downloading
@@ -279,17 +345,18 @@ export class VoiceController {
         timeoutMs = 300000; // 5 minutes if flag is set
       }
       
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
+        if (isResolved) return;
+        
         if (!whisperProcess.killed) {
           // Don't kill if currently downloading and we allow long downloads
           if (this.isDownloadingModel && this.allowLongDownload) {
             console.log('🤖 Download in progress, extending timeout...');
-            // Restart timeout for another 5 minutes
-            setTimeout(() => {
-              if (!whisperProcess.killed) {
+            // Extend timeout for another 5 minutes
+            timeoutId = setTimeout(() => {
+              if (!isResolved && !whisperProcess.killed) {
                 console.log('🤖 Download taking too long, killing process');
-                whisperProcess.kill('SIGTERM');
-                resolve('');
+                resolveOnce('');
               }
             }, 300000);
             return;
@@ -298,34 +365,70 @@ export class VoiceController {
           if (this.allowLongDownload) {
             console.log('🤖 Base model processing taking too long, killing process');
           }
-          whisperProcess.kill('SIGTERM');
-          resolve(''); // Return empty instead of error for timeout
+          resolveOnce(''); // Return empty instead of error for timeout
         }
       }, timeoutMs);
     });
   }
 
   private async processCommand(command: string): Promise<void> {
-    // Look for command keywords with better matching (check for pause first to avoid play conflicts)
-    const commands = ['pause', 'play', 'top', 'bottom']; // Reorder to check pause before play
+    console.log(`🎯 Processing command: "${command}"`);
     
-    for (const cmd of commands) {
-      if (command.includes(cmd)) {        
-        const handler = this.commandHandlers.get(cmd);
-        if (handler) {
-          try {
-            await handler();
-          } catch (error) {
-            console.error(`❌ Error executing handler for "${cmd}":`, error);
-          }
-        }
-        
-        // Also call the onCommand callback if set
-        if (this.onCommand) {
-          this.onCommand(cmd);
-        }
+    // Check for number commands first (more specific patterns)
+    if (this.containsNumber(command, '1') || this.containsWord(command, 'one') || 
+        this.containsWord(command, 'first') || this.containsWord(command, 'top') || 
+        this.containsWord(command, 'left')) {
+      console.log('🎯 Detected command for option 1');
+      this.executeCommand('top');
+      return;
+    }
+    
+    if (this.containsNumber(command, '2') || this.containsWord(command, 'two') || 
+        this.containsWord(command, 'second') || this.containsWord(command, 'bottom') || 
+        this.containsWord(command, 'right')) {
+      console.log('🎯 Detected command for option 2'); 
+      this.executeCommand('bottom');
+      return;
+    }
+    
+    // Check for other commands (pause first to avoid play conflicts)
+    const otherCommands = ['pause', 'play'];
+    for (const cmd of otherCommands) {
+      if (this.containsWord(command, cmd)) {        
+        console.log(`🎯 Detected command: ${cmd}`);
+        this.executeCommand(cmd);
         return;
       }
+    }
+    
+    console.log(`❓ No matching command found in: "${command}"`);
+  }
+
+  private containsNumber(text: string, number: string): boolean {
+    // Match the number as a standalone word or at word boundaries
+    const regex = new RegExp(`\\b${number}\\b`, 'i');
+    return regex.test(text);
+  }
+
+  private containsWord(text: string, word: string): boolean {
+    // Match the word at word boundaries
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    return regex.test(text);
+  }
+
+  private async executeCommand(cmd: string): Promise<void> {
+    const handler = this.commandHandlers.get(cmd);
+    if (handler) {
+      try {
+        await handler();
+      } catch (error) {
+        console.error(`❌ Error executing handler for "${cmd}":`, error);
+      }
+    }
+    
+    // Also call the onCommand callback if set
+    if (this.onCommand) {
+      this.onCommand(cmd);
     }
   }
 

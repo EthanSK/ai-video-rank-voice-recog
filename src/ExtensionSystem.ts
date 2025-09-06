@@ -246,17 +246,21 @@ export class ExtensionSystem {
 
 
   private async handleModelNames(models: Array<{ name: string, preference: string, type: string }>): Promise<void> {
-    console.log('🔍 Processing model names:', models);
+    console.log('🔍 RECEIVED MODEL DATA FROM EXTENSION:', JSON.stringify(models, null, 2));
     
     // Find the preferred model (the one that was voted for)
     const preferredModel = models.find(model => model.preference === 'preferred');
+    const allModels = models.map(m => `"${m.name}" (${m.preference})`).join(', ');
+    
+    console.log('📋 ALL MODELS DETECTED:', allModels);
+    console.log('🎯 PREFERRED MODEL FOUND:', preferredModel ? `"${preferredModel.name}"` : 'NONE');
     
     // Import spawn for running the 'say' command
     const { spawn } = await import('child_process');
     
     if (preferredModel) {
       const modelName = preferredModel.name;
-      console.log(`🗣️  Announcing selected model: ${modelName}`);
+      console.log(`🗣️  DANIEL SHOULD SAY: "Selected ${modelName}"`);
       
       // Use macOS built-in 'say' command with Daniel voice to announce the selected model
       const announcement = `Selected ${modelName}`;
@@ -272,7 +276,8 @@ export class ExtensionSystem {
         }
       });
     } else {
-      console.log('⚠️ No preferred model found in model data - announcing fallback message');
+      console.log('⚠️ NO PREFERRED MODEL FOUND - DANIEL SHOULD SAY FALLBACK MESSAGE');
+      console.log('🔍 DEBUG: Extension might not be detecting model names correctly');
       
       // Fallback message when no model name could be retrieved
       const fallbackMessage = "I'm retarded";
