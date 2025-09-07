@@ -30,7 +30,8 @@
       "WebFetch(domain:github.com)",
       "Bash(kill:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(sudo pkill:*)"
+      "Bash(sudo pkill:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

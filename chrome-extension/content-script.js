@@ -282,7 +282,7 @@ class VideoExtractor {
         this.voteDetectionInterval = null;
         console.log('🛑 Stopped high frequency polling after 4 seconds');
       }
-    }, 300); // 300ms polling as requested
+    }, 100); // 100ms FAST polling to catch brief model name appearances
   }
 
   setupNavigationMonitoring() {
@@ -332,19 +332,23 @@ class VideoExtractor {
     
     // More comprehensive search - look for the specific patterns from our Playwright investigation
     const selectors = [
+      // PRIMARY: Look for the exact pattern you found
+      '.text-green-500.animate-arena-upvote',  // Preferred model (green + upvote)
+      '.text-red-500.animate-arena-downvote',  // Non-preferred model (red + downvote)
+      
+      // SECONDARY: Individual classes
       '.text-green-500',  // Green upvote text
-      '.text-red-500',    // Red downvote text
+      '.text-red-500',    // Red downvote text  
+      '.animate-arena-upvote',
+      '.animate-arena-downvote',
+      
+      // FALLBACK: Broader patterns
       '[class*="upvote"]',
       '[class*="downvote"]',
       '[class*="green-500"]',
       '[class*="red-500"]',
-      '.animate-arena-upvote',
-      '.animate-arena-downvote',
-      // Additional selectors to catch more model name appearances
-      'div:has(.text-green-500)',
-      'div:has(.text-red-500)',
-      'span:has(.text-green-500)', 
-      'span:has(.text-red-500)'
+      '[class*="text-green"]',
+      '[class*="text-red"]'
     ];
     
     selectors.forEach(selector => {
@@ -358,32 +362,47 @@ class VideoExtractor {
         debugInfo.push(`  Element: "${text}" (classes: ${classList})`);
         
         if (text && this.looksLikeModelName(text)) {
-          const isGreen = classList.includes('green') || classList.includes('upvote');
-          const isRed = classList.includes('red') || classList.includes('downvote');
+          // Enhanced detection for the exact pattern you found
+          const hasTextGreen500 = classList.includes('text-green-500');
+          const hasTextRed500 = classList.includes('text-red-500');
+          const hasArenaUpvote = classList.includes('animate-arena-upvote');
+          const hasArenaDownvote = classList.includes('animate-arena-downvote');
           
           // Enhanced detection logic
           let preference = 'unknown';
           let type = 'unknown';
           
-          if (isGreen) {
+          // Priority 1: Exact pattern match (text-green-500 + animate-arena-upvote)
+          if (hasTextGreen500 && hasArenaUpvote) {
             preference = 'preferred';
             type = 'upvote';
-          } else if (isRed) {
+            console.log(`🎯 FOUND PREFERRED MODEL (green+upvote): "${text}"`);
+          } else if (hasTextRed500 && hasArenaDownvote) {
             preference = 'not-preferred';
             type = 'downvote';
-          } else {
-            // Check parent elements for vote indicators
-            let parentElement = element.parentElement;
-            while (parentElement && preference === 'unknown') {
-              const parentClasses = parentElement.className || '';
-              if (parentClasses.includes('green') || parentClasses.includes('upvote')) {
-                preference = 'preferred';
-                type = 'upvote';
-              } else if (parentClasses.includes('red') || parentClasses.includes('downvote')) {
-                preference = 'not-preferred';
-                type = 'downvote';
-              }
-              parentElement = parentElement.parentElement;
+            console.log(`🎯 FOUND NON-PREFERRED MODEL (red+downvote): "${text}"`);
+          }
+          // Priority 2: Individual class matches
+          else if (hasTextGreen500 || hasArenaUpvote) {
+            preference = 'preferred';
+            type = 'upvote';
+            console.log(`🟢 FOUND GREEN MODEL: "${text}"`);
+          } else if (hasTextRed500 || hasArenaDownvote) {
+            preference = 'not-preferred';
+            type = 'downvote';
+            console.log(`🔴 FOUND RED MODEL: "${text}"`);
+          }
+          // Priority 3: Fallback detection
+          else {
+            const isGreen = classList.includes('green') || classList.includes('upvote');
+            const isRed = classList.includes('red') || classList.includes('downvote');
+            
+            if (isGreen) {
+              preference = 'preferred';
+              type = 'upvote';
+            } else if (isRed) {
+              preference = 'not-preferred';
+              type = 'downvote';
             }
           }
           

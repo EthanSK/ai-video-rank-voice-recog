@@ -153,7 +153,7 @@ export class ExtensionSystem {
         this.handleVoiceCommand(command);
       };
 
-      await this.voiceController.initialize(allowLongDownload);
+      await this.voiceController.initialize();
       console.log("🎤 Voice recognition system initialized successfully");
     } catch (error) {
       console.log(
@@ -334,16 +334,11 @@ export class ExtensionSystem {
           console.log(`✅ Daniel announced (ONCE): ${announcement}`);
         }
 
-        // Wait 5 seconds after TTS finishes before unmuting voice recognition
-        console.log(
-          "🔇 Keeping voice recognition muted for 5 seconds after TTS..."
-        );
-        setTimeout(() => {
-          if (this.voiceController) {
-            this.voiceController.unmuteAfterTTS();
-            console.log("🔊 Voice recognition unmuted after 5-second delay");
-          }
-        }, 5000);
+        // Immediately unmute voice recognition after TTS finishes
+        if (this.voiceController) {
+          this.voiceController.unmuteAfterTTS();
+          console.log("🔊 Voice recognition unmuted immediately after TTS");
+        }
       });
     } else {
       console.log(
