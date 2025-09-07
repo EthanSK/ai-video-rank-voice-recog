@@ -251,7 +251,7 @@ class VideoExtractor {
   }
 
   startHighFrequencyPolling() {
-    console.log('🚀 Starting high frequency polling for model names (300ms for 4 seconds)...');
+    console.log('🚀 Starting high frequency polling for model names (100ms for 8 seconds)...');
     
     // Clear any existing high frequency polling
     if (this.voteDetectionInterval) {
@@ -261,9 +261,11 @@ class VideoExtractor {
     // DON'T reset lastModelData here - we need it for deduplication!
     // this.lastModelData = null;  // REMOVED - this was causing the spam
     
-    // Poll every 300ms for 4 seconds (as requested)
+    // Poll every 100ms for 8 seconds (extended duration for better detection)
     let pollCount = 0;
-    const maxPolls = Math.floor(4000 / 300); // 4 seconds / 300ms = ~13 polls
+    const scanDurationMs = 8000; // 8 seconds
+    const pollIntervalMs = 100;  // 100ms
+    const maxPolls = Math.floor(scanDurationMs / pollIntervalMs); // 80 polls
     let modelFoundAndSent = false;
     
     this.voteDetectionInterval = setInterval(() => {
@@ -276,13 +278,13 @@ class VideoExtractor {
         console.log('✅ Models detected and sent - continuing polling for remaining time');
       }
       
-      // Stop after 4 seconds (13 polls at 300ms)
+      // Stop after 8 seconds
       if (pollCount >= maxPolls) {
         clearInterval(this.voteDetectionInterval);
         this.voteDetectionInterval = null;
-        console.log('🛑 Stopped high frequency polling after 4 seconds');
+        console.log('🛑 Stopped high frequency polling after 8 seconds');
       }
-    }, 100); // 100ms FAST polling to catch brief model name appearances
+    }, pollIntervalMs); // 100ms FAST polling to catch brief model name appearances
   }
 
   setupNavigationMonitoring() {

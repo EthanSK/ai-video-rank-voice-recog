@@ -191,15 +191,11 @@ export class ExtensionSystem {
     const cmd = command.toLowerCase().trim();
 
     switch (cmd) {
-      case "left":
       case "top":
-      case "first":
         await this.selectPreference("top");
         break;
 
-      case "right":
       case "bottom":
-      case "second":
         await this.selectPreference("bottom");
         break;
 

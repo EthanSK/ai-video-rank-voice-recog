@@ -9,7 +9,7 @@ export class VoiceController {
   private isListening = false;
   private isMutedForTTS = false;
   private lastCommandTime = 0;
-  private commandDebounceMs = 1000; // Prevent duplicate commands within 1 second
+  private commandDebounceMs = 300; // Prevent duplicate commands within 300ms (fast voting)
 
   public onCommand: ((command: string) => void) | null = null;
 
