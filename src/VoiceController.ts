@@ -64,7 +64,7 @@ export class VoiceController {
   private hasStrongCommandSignal(text: string): boolean {
     // Check if text contains clear command words that we should act on immediately
     const strongCommands = [
-      'left', 'right', 'top', 'bottom', 'first', 'second', 
+      'top', 'bottom', 'first', 'second', 
       'one', 'two', 'too', 'to', '1', '2',
       'play', 'pause', 'stop'
     ];
@@ -78,18 +78,16 @@ export class VoiceController {
     
     // More resilient command detection - check for multiple patterns
     
-    // LEFT/TOP/FIRST commands - more variations and fuzzy matching
-    if (this.containsAnyWord(command, ['left', 'first', 'top', 'one', '1', 'lift', 'live']) ||
-        this.containsPhrase(command, ['go left', 'choose left', 'select first', 'pick one', 'will lift', 'will left'])) {
-      console.log('🎯 Detected command: LEFT (phonetic match included)');
+    // TOP commands - detect "top" anywhere in the phrase
+    if (this.containsAnyWord(command, ['top', 'first', 'one', '1'])) {
+      console.log('🎯 Detected command: TOP');
       this.executeCommand('top');
       return;
     }
     
-    // RIGHT/BOTTOM/SECOND commands - enhanced detection
-    if (this.containsAnyWord(command, ['right', 'second', 'bottom', 'two', 'too', 'to', '2', 'write', 'ride']) ||
-        this.containsPhrase(command, ['go right', 'choose right', 'select second', 'pick two', 'go write', 'go ride'])) {
-      console.log('🎯 Detected command: RIGHT (phonetic match included)'); 
+    // BOTTOM commands - detect "bottom" anywhere in the phrase
+    if (this.containsAnyWord(command, ['bottom', 'second', 'two', 'too', 'to', '2'])) {
+      console.log('🎯 Detected command: BOTTOM'); 
       this.executeCommand('bottom');
       return;
     }
