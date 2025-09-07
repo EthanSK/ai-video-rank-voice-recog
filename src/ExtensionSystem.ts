@@ -97,10 +97,13 @@ export class ExtensionSystem {
     // Route to receive model names from extension for TTS
     this.app.post("/model-names", (req, res) => {
       const { models, timestamp } = req.body;
-      console.log("🏷️ Received model names from extension:", models);
+      const now = Date.now();
+      console.log(`🏷️ Received model names POST request at ${now} (${models?.length || 0} models)`);
 
       if (models && models.length > 0) {
         this.handleModelNames(models);
+      } else {
+        console.log("⚠️ No models provided in request");
       }
 
       res.json({ success: true });
@@ -297,10 +300,10 @@ export class ExtensionSystem {
       const modelName = preferredModel.name;
       const currentTime = Date.now();
 
-      // Check if Daniel spoke within the last second (debounce)
-      if (currentTime - this.lastTTSTime < 1000) {
+      // Check if Daniel spoke within the last 3 seconds (stronger debounce)
+      if (currentTime - this.lastTTSTime < 3000) {
         console.log(
-          "🔇 DANIEL DEBOUNCED - spoke less than 1 second ago, skipping announcement"
+          `🔇 DANIEL DEBOUNCED - spoke ${(currentTime - this.lastTTSTime)/1000}s ago, skipping announcement`
         );
         return;
       }

@@ -63,31 +63,36 @@ export class VoiceController {
 
   private hasStrongCommandSignal(text: string): boolean {
     // Check if text contains clear command words that we should act on immediately
-    const strongCommands = [
-      'top', 'bottom', 'first', 'second', 
-      'one', 'two', 'too', 'to', '1', '2',
-      'play', 'pause', 'stop'
-    ];
-    
     const lowerText = text.toLowerCase();
-    return strongCommands.some(cmd => this.containsWord(lowerText, cmd));
+    
+    // Check for "number one" or "number two" phrases
+    if (lowerText.includes('number one') || lowerText.includes('number 1')) {
+      return true;
+    }
+    if (lowerText.includes('number two') || lowerText.includes('number 2')) {
+      return true;
+    }
+    
+    // Check for media controls
+    const mediaCommands = ['play', 'pause', 'stop'];
+    return mediaCommands.some(cmd => this.containsWord(lowerText, cmd));
   }
 
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
     
-    // More resilient command detection - check for multiple patterns
+    // Only respond to "number one" or "number two" commands
     
-    // TOP commands - detect "top" anywhere in the phrase
-    if (this.containsAnyWord(command, ['top', 'first', 'one', '1'])) {
-      console.log('🎯 Detected command: TOP');
+    // Check for "number one" variations
+    if (command.includes('number one') || command.includes('number 1')) {
+      console.log('🎯 Detected command: NUMBER ONE → TOP');
       this.executeCommand('top');
       return;
     }
     
-    // BOTTOM commands - detect "bottom" anywhere in the phrase
-    if (this.containsAnyWord(command, ['bottom', 'second', 'two', 'too', 'to', '2'])) {
-      console.log('🎯 Detected command: BOTTOM'); 
+    // Check for "number two" variations  
+    if (command.includes('number two') || command.includes('number 2')) {
+      console.log('🎯 Detected command: NUMBER TWO → BOTTOM');
       this.executeCommand('bottom');
       return;
     }
@@ -105,7 +110,7 @@ export class VoiceController {
       return;
     }
     
-    console.log(`❓ No matching command found in: "${command}"`);
+    console.log(`❓ No matching command found in: "${command}" (only 'number one', 'number two', 'pause', 'play' are recognized)`);
   }
 
   private containsWord(text: string, word: string): boolean {
