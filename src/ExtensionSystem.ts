@@ -341,16 +341,42 @@ export class ExtensionSystem {
         "⚠️ NO PREFERRED MODEL FOUND - only non-preferred models detected"
       );
       console.log("🔍 This means you voted AGAINST these models");
-      console.log(
-        "🤐 Daniel stays silent for non-preferred models (correct behavior)"
-      );
-
-      // Show which model was voted against for debugging
+      
+      // Find the non-preferred model to announce
       const nonPreferredModel = models.find(
         (m) => m.preference === "not-preferred"
       );
+      
       if (nonPreferredModel) {
         console.log(`👎 You voted AGAINST: "${nonPreferredModel.name}"`);
+        console.log(`🗣️ Daniel will announce the non-preferred model: "${nonPreferredModel.name}"`);
+        
+        // Mute voice recognition before speaking
+        if (this.voiceController) {
+          this.voiceController.muteForTTS();
+        }
+
+        // Announce the non-preferred model (better than silence)
+        const announcement = nonPreferredModel.name;
+        const sayProcess = spawn("say", ["-v", "Daniel", announcement]);
+
+        sayProcess.on("error", (error) => {
+          console.error("❌ TTS Error:", error);
+        });
+
+        sayProcess.on("close", (code) => {
+          if (code === 0) {
+            console.log(`✅ Daniel announced non-preferred model: ${announcement}`);
+          }
+
+          // Immediately unmute voice recognition after TTS finishes
+          if (this.voiceController) {
+            this.voiceController.unmuteAfterTTS();
+            console.log("🔊 Voice recognition unmuted immediately after TTS");
+          }
+        });
+      } else {
+        console.log("🤐 No models found to announce");
       }
     }
   }

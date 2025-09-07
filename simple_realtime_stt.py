@@ -76,7 +76,7 @@ class SimpleRealtimeSTT:
         print("🎤 Initializing RealtimeSTT...")
         
         try:
-            # Optimized configuration to reduce bias and improve stability
+            # Stricter configuration to reduce false positives and improve confidence
             recorder_config = {
                 'model': 'tiny.en',  # Fast model
                 'realtime_model_type': 'tiny.en',
@@ -90,9 +90,16 @@ class SimpleRealtimeSTT:
                 'normalize_audio': True,  # Consistent transcription quality
                 'use_main_model_for_realtime': True,  # Better consistency
                 
-                # Audio processing
-                'post_speech_silence_duration': 0.3,  # Faster detection
-                'pre_recording_buffer_duration': 1.0,  # Reduce context bleeding
+                # Stricter VAD parameters (correct parameter names)
+                'silero_sensitivity': 0.6,  # Stricter Silero VAD (0.4 default -> 0.6)
+                'webrtc_sensitivity': 2,    # Less sensitive WebRTC VAD (3 default -> 2)
+                'silero_deactivity_detection': True,  # Better end-of-speech detection
+                
+                # Audio processing with stricter thresholds
+                'post_speech_silence_duration': 0.5,  # Longer silence before stopping (0.6 default -> 0.5)
+                'min_length_of_recording': 0.6,      # Require longer recordings (0.5 default -> 0.6)
+                'pre_recording_buffer_duration': 0.8,  # Reduce context bleeding
+                
                 'use_microphone': True,
                 'spinner': False,
                 'level': 30
