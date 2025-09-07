@@ -22,7 +22,12 @@
       "Bash(npm install:*)",
       "Bash(python:*)",
       "mcp__playwright__browser_press_key",
-      "WebSearch"
+      "WebSearch",
+      "Bash(timeout:*)",
+      "Bash(brew install:*)",
+      "Bash(npx tsx:*)",
+      "Bash(chmod:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
