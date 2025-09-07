@@ -5,7 +5,8 @@ A Chrome extension + Node.js backend system that enables voice-controlled rankin
 ## 🎬 Features
 
 ✅ **Zero Detection**: Runs inside your real Chrome browser - bypasses all Cloudflare/bot detection  
-✅ **Voice Control**: Hands-free ranking with "top", "bottom", "play", "pause" commands  
+✅ **Voice Control**: Hands-free ranking with "up", "down", "play", "pause" commands  
+✅ **Daniel TTS**: Announces selected model names for audio feedback  
 ✅ **Dual Monitor Setup**: Separate TOP/BOTTOM video windows for optimal viewing  
 ✅ **Auto Extraction**: Extension automatically scrapes and streams video data  
 ✅ **Real Session**: Uses your actual browser session, cookies, and login status  
@@ -37,7 +38,7 @@ npm run dev
 2. **Solve Cloudflare** challenge manually (one-time only)
 3. **Extension automatically** streams video data to backend
 4. **Two video windows** open showing TOP and BOTTOM videos
-5. **Use voice commands**: "top", "bottom", "play", "pause"
+5. **Use voice commands**: "up", "down", "play", "pause"
 
 ## 🏗️ System Architecture
 
@@ -80,62 +81,76 @@ ai-video-rank-voice-recog/
 
 | Command | Action |
 |---------|--------|
-| **"top"** | Selects the top/left video as preferred |
-| **"bottom"** | Selects the bottom/right video as preferred |
+| **"up"** | Selects the top/left video as preferred |
+| **"down"** | Selects the bottom/right video as preferred |
 | **"play"** | Plays both videos in display windows |
 | **"pause"** | Pauses both videos in display windows |
+
+After voting, **Daniel TTS** will announce the selected model name (e.g., "PixVerse V5", "Vidu Q1").
 
 ## 🔧 Prerequisites
 
 ### Required Software
 
 1. **Node.js** (v18 or higher)
-2. **Chrome Browser** (optional - only needed for video display)
-3. **Python** with **pip**
-4. **SoX** (for audio recording)
-5. **OpenAI Whisper** (for speech recognition)
+2. **Chrome Browser** (for extension and video display)
+3. **Python** (v3.8 or higher)
+4. **RealtimeSTT** (for advanced speech recognition)
 
 ### Installation Steps
 
-#### 1. Install SoX (macOS)
+#### 1. Create Python Virtual Environment
 ```bash
-brew install sox
+python3 -m venv venv
+source venv/bin/activate  # On macOS/Linux
+# OR: venv\Scripts\activate  # On Windows
 ```
 
-#### 2. Install SoX (Linux)
+#### 2. Install RealtimeSTT
 ```bash
-sudo apt-get install sox
+pip install RealtimeSTT
 ```
 
-#### 3. Install Whisper
-```bash
-pip install openai-whisper
-```
-
-#### 4. Install Node.js Dependencies  
+#### 3. Install Node.js Dependencies  
 ```bash
 npm install
 ```
 
-## 🎤 Voice Recognition Improvements
-
-The voice recognition system has been completely rearchitected for better real-time performance:
-
-- ✅ **Better audio chunks**: 3-second chunks instead of 1.5s for better speech context
-- ✅ **Comprehensive logging**: Detailed output for debugging speech recognition
-- ✅ **Graceful error handling**: System continues even with missing dependencies  
-- ✅ **Processing locks**: Prevents overlapping Whisper calls
-- ✅ **Isolated testing**: Test voice recognition independently with `npm run test-voice`
-
-### Testing Voice Recognition Only
-
-To test just the voice recognition system (without browser automation):
-
+#### 4. Start Voice Recognition
 ```bash
-npm run test-voice
+./start-voice.sh  # Starts RealtimeSTT streamer
 ```
 
-This will start only the voice recognition system and log all speech processing in detail.
+## 🎤 RealtimeSTT Voice Recognition
+
+The system uses RealtimeSTT for advanced real-time speech recognition:
+
+- ✅ **RealtimeSTT Integration**: Advanced VAD and instant transcription
+- ✅ **Stricter Detection**: Reduced false positives with confidence thresholds  
+- ✅ **TCP Streaming**: Real-time audio streaming between Python and Node.js
+- ✅ **Daniel TTS Feedback**: Announces detected model names
+- ✅ **Fast Debouncing**: 300ms command debounce for rapid voting
+
+### Voice Recognition Architecture
+
+```
+┌─────────────────────┐    TCP    ┌─────────────────────┐
+│  Python RealtimeSTT │ ◄────────► │   Node.js Server   │
+│  • Audio Capture    │  Port 8889 │   • Command Proc   │  
+│  • Whisper Engine   │            │   • Voice Control  │
+│  • VAD Filtering    │            │   • Daniel TTS     │
+└─────────────────────┘            └─────────────────────┘
+```
+
+### Starting Voice Recognition
+
+```bash
+# Terminal 1: Start main application
+npm run dev
+
+# Terminal 2: Start voice recognition  
+./start-voice.sh
+```
 
 ## 📖 How It Works
 

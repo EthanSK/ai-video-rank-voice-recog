@@ -93,6 +93,7 @@ export class VoiceController {
     // Check for "up" command
     if (this.containsWord(command, 'up')) {
       console.log("🎯 Detected command: UP → TOP");
+      console.log(`🚀 RUNNING VOTE DUE TO DETECTED COMMAND: "${command}"`);
       this.executeCommand("top");
       return;
     }
@@ -100,6 +101,7 @@ export class VoiceController {
     // Check for "down" command
     if (this.containsWord(command, 'down')) {
       console.log("🎯 Detected command: DOWN → BOTTOM");
+      console.log(`🚀 RUNNING VOTE DUE TO DETECTED COMMAND: "${command}"`);
       this.executeCommand("bottom");
       return;
     }
