@@ -76,14 +76,23 @@ class SimpleRealtimeSTT:
         print("🎤 Initializing RealtimeSTT...")
         
         try:
-            # Configuration based on working demo
+            # Optimized configuration to reduce bias and improve stability
             recorder_config = {
                 'model': 'tiny.en',  # Fast model
                 'realtime_model_type': 'tiny.en',
                 'language': 'en',
                 'enable_realtime_transcription': True,
                 'on_realtime_transcription_update': self.on_realtime_transcription_update,
-                'post_speech_silence_duration': 0.45,  # Quick detection
+                
+                # Performance optimizations from GitHub discussions
+                'realtime_processing_pause': 0,  # Minimum latency
+                'beam_size': 1,  # Reduce model bias and improve speed
+                'normalize_audio': True,  # Consistent transcription quality
+                'use_main_model_for_realtime': True,  # Better consistency
+                
+                # Audio processing
+                'post_speech_silence_duration': 0.3,  # Faster detection
+                'pre_recording_buffer_duration': 1.0,  # Reduce context bleeding
                 'use_microphone': True,
                 'spinner': False,
                 'level': 30

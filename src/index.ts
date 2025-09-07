@@ -15,7 +15,7 @@ async function main() {
     await system.initialize(allowLongDownload);
     
     console.log('✅ System initialized successfully!');
-    console.log('📱 Voice commands: "top", "bottom", "play", "pause"');
+    console.log('📱 Voice commands: "up", "down", "play", "pause"');
     console.log('🖥️  Two browser windows should now be open on your second monitor');
     
     // Keep the process running

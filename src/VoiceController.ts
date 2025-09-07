@@ -75,11 +75,8 @@ export class VoiceController {
     // Check if text contains clear command words that we should act on immediately
     const lowerText = text.toLowerCase();
 
-    // Check for "number" prefix with variations of "one" and "two"
-    if (
-      this.hasNumberOneCommand(lowerText) ||
-      this.hasNumberTwoCommand(lowerText)
-    ) {
+    // Check for "up" and "down" commands
+    if (this.containsWord(lowerText, 'up') || this.containsWord(lowerText, 'down')) {
       return true;
     }
 
@@ -91,18 +88,18 @@ export class VoiceController {
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
 
-    // Only respond to "number one" or "number two" commands (with misspelling tolerance)
+    // Only respond to "up" or "down" commands
 
-    // Check for "number one" variations (including misspellings)
-    if (this.hasNumberOneCommand(command)) {
-      console.log("🎯 Detected command: NUMBER ONE → TOP");
+    // Check for "up" command
+    if (this.containsWord(command, 'up')) {
+      console.log("🎯 Detected command: UP → TOP");
       this.executeCommand("top");
       return;
     }
 
-    // Check for "number two" variations (including misspellings)
-    if (this.hasNumberTwoCommand(command)) {
-      console.log("🎯 Detected command: NUMBER TWO → BOTTOM");
+    // Check for "down" command
+    if (this.containsWord(command, 'down')) {
+      console.log("🎯 Detected command: DOWN → BOTTOM");
       this.executeCommand("bottom");
       return;
     }
@@ -121,7 +118,7 @@ export class VoiceController {
     }
 
     console.log(
-      `❓ No matching command found in: "${command}" (only 'number one', 'number two', 'pause', 'play' are recognized)`
+      `❓ No matching command found in: "${command}" (only 'up', 'down', 'pause', 'play' are recognized)`
     );
   }
 
@@ -142,36 +139,6 @@ export class VoiceController {
     return phrases.some((phrase) => lowerText.includes(phrase.toLowerCase()));
   }
 
-  private hasNumberOneCommand(text: string): boolean {
-    // Check for "number one" variations including misspellings
-    const lowerText = text.toLowerCase();
-    const numberOnePatterns = [
-      "number one",
-      "number 1",
-      "num one",
-      "num 1",
-      "number won",
-      "numbr one",
-      "numero one",
-    ];
-    return numberOnePatterns.some((pattern) => lowerText.includes(pattern));
-  }
-
-  private hasNumberTwoCommand(text: string): boolean {
-    // Check for "number two" variations including misspellings and "to/too"
-    const lowerText = text.toLowerCase();
-    const numberTwoPatterns = [
-      "number two",
-      "number 2",
-      "num two",
-      "num 2",
-      "number to",
-      "number too",
-      "numbr two",
-      "numero two",
-    ];
-    return numberTwoPatterns.some((pattern) => lowerText.includes(pattern));
-  }
 
   private async executeCommand(cmd: string): Promise<void> {
     const handler = this.commandHandlers.get(cmd);
