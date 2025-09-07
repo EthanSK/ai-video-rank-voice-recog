@@ -129,8 +129,8 @@ export class VoiceController {
     // Check if text contains clear command words that we should act on immediately
     const lowerText = text.toLowerCase();
 
-    // Check for "up" and "down" commands
-    if (this.containsWord(lowerText, 'up') || this.containsWord(lowerText, 'down')) {
+    // Check for "i like up" and "i like down" commands (more specific to avoid false triggers)
+    if (this.containsPhrase(lowerText, ["i like up", "i like down"])) {
       return true;
     }
 
@@ -143,8 +143,8 @@ export class VoiceController {
     // Extract which specific command type was detected
     const lowerText = text.toLowerCase();
     
-    if (this.containsWord(lowerText, 'up')) return 'up';
-    if (this.containsWord(lowerText, 'down')) return 'down';
+    if (lowerText.includes('i like up')) return 'up';
+    if (lowerText.includes('i like down')) return 'down';
     if (this.containsWord(lowerText, 'play')) return 'play';
     if (this.containsWord(lowerText, 'pause')) return 'pause';
     if (this.containsWord(lowerText, 'stop')) return 'stop';
@@ -155,19 +155,19 @@ export class VoiceController {
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
 
-    // Only respond to "up" or "down" commands
+    // Only respond to "i like up" or "i like down" commands
 
-    // Check for "up" command
-    if (this.containsWord(command, 'up')) {
-      console.log("🎯 Detected command: UP → TOP");
+    // Check for "i like up" command
+    if (command.toLowerCase().includes('i like up')) {
+      console.log("🎯 Detected command: I LIKE UP → TOP");
       console.log(`🚀 RUNNING VOTE DUE TO DETECTED COMMAND: "${command}"`);
       this.executeCommand("top");
       return;
     }
 
-    // Check for "down" command
-    if (this.containsWord(command, 'down')) {
-      console.log("🎯 Detected command: DOWN → BOTTOM");
+    // Check for "i like down" command
+    if (command.toLowerCase().includes('i like down')) {
+      console.log("🎯 Detected command: I LIKE DOWN → BOTTOM");
       console.log(`🚀 RUNNING VOTE DUE TO DETECTED COMMAND: "${command}"`);
       this.executeCommand("bottom");
       return;
@@ -187,7 +187,7 @@ export class VoiceController {
     }
 
     console.log(
-      `❓ No matching command found in: "${command}" (only 'up', 'down', 'pause', 'play' are recognized)`
+      `❓ No matching command found in: "${command}" (only 'i like up', 'i like down', 'pause', 'play' are recognized)`
     );
   }
 

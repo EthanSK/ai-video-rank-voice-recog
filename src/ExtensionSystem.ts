@@ -17,6 +17,8 @@ export class ExtensionSystem {
   private currentVideoData: VideoData | null = null;
   // Track last announced preferred model to prevent duplicate TTS
   private lastAnnouncedPreferredModelName: string | null = null;
+  // Lock to prevent Daniel from announcing until new videos load
+  private danielAnnouncementLocked: boolean = false;
 
   constructor() {
     this.app = express();
@@ -54,6 +56,8 @@ export class ExtensionSystem {
           "🎬 New videos detected - resetting model announcement tracking"
         );
         this.lastAnnouncedPreferredModelName = null;
+        this.danielAnnouncementLocked = false; // Unlock Daniel for new videos
+        console.log("🔓 Daniel announcement UNLOCKED for new videos");
       }
 
       // Update display if we have valid video URLs
@@ -172,7 +176,7 @@ export class ExtensionSystem {
     console.log("   2. Navigate to artificialanalysis.ai/text-to-video/arena");
     console.log("   3. Solve Cloudflare manually in your browser");
     console.log("   4. Extension will automatically stream video data");
-    console.log('   5. Use voice commands: "left", "right", "play", "pause"');
+    console.log('   5. Use voice commands: "i like up", "i like down", "play", "pause"');
     console.log("");
     console.log(
       "🎤 Voice recognition is now running with improved real-time processing!"
@@ -289,6 +293,14 @@ export class ExtensionSystem {
       return;
     }
 
+    // If Daniel announcement is locked (already announced for these videos), skip
+    if (this.danielAnnouncementLocked) {
+      console.log(
+        "🔒 DANIEL ANNOUNCEMENT LOCKED - already announced for these videos"
+      );
+      return;
+    }
+
     // Import spawn for running the 'say' command
     const { spawn } = await import("child_process");
 
@@ -307,6 +319,8 @@ export class ExtensionSystem {
       console.log(`🗣️  DANIEL WILL ANNOUNCE (ONCE): "${modelName}"`);
       this.lastTTSTime = currentTime; // Update last speech time
       this.lastAnnouncedPreferredModelName = preferredNameNorm; // Mark as announced for current videos
+      this.danielAnnouncementLocked = true; // Lock until new videos load
+      console.log("🔒 Daniel announcement LOCKED until new videos load");
 
       // Mute voice recognition before speaking
       if (this.voiceController) {

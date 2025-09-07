@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Ranking Voice Control - Hands-Free AI Model Comparison</title>
+    <meta name="description" content="Voice-controlled AI video ranking system. Help improve AI models for everyone while enjoying beautiful AI art on dual monitors. Zero detection, hands-free operation.">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ethansarif-kattan.github.io/ai-video-rank-voice-recog/">
+    <meta property="og:title" content="AI Video Ranking Voice Control">
+    <meta property="og:description" content="Voice-controlled AI video ranking system. Help improve AI models while enjoying AI art.">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="AI Video Ranking Voice Control">
+    <meta property="twitter:description" content="Voice-controlled AI video ranking system. Help improve AI models while enjoying AI art.">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .github-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .github-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* Hero Section */
+        .hero {
+            padding: 6rem 0;
+            text-align: center;
+            color: white;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+        
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 4rem;
+        }
+        
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(79, 70, 229, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+        }
+        
+        /* Demo Video Placeholder */
+        .demo-video {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .demo-video p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+        }
+        
+        /* Content Sections */
+        .section {
+            padding: 5rem 0;
+            background: white;
+        }
+        
+        .section:nth-child(even) {
+            background: #f8fafc;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: #1e293b;
+        }
+        
+        /* Benefits Grid */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .benefit-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .benefit-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .benefit-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .benefit-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+        
+        /* Features List */
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .feature-check {
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        /* Setup Steps */
+        .setup-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .step-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 2rem;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .step-card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+            margin-top: 0.5rem;
+        }
+        
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        /* Monitor Setup Visual */
+        .monitor-setup {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 3rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .monitor {
+            width: 200px;
+            height: 120px;
+            background: #1e293b;
+            border-radius: 8px;
+            border: 3px solid #374151;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+        }
+        
+        .monitor::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 10px;
+            background: #6b7280;
+            border-radius: 0 0 4px 4px;
+        }
+        
+        .monitor h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .monitor p {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            text-align: center;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #1e293b;
+            color: white;
+            padding: 3rem 0 2rem;
+            text-align: center;
+        }
+        
+        .footer p {
+            opacity: 0.8;
+            margin-bottom: 1rem;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            opacity: 1;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .monitor-setup {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .section-title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <nav class="nav container">
+            <a href="#" class="logo">🎬 AI Video Ranking</a>
+            <a href="https://github.com/ethansarif-kattan/ai-video-rank-voice-recog" class="github-btn" target="_blank">
+                ⭐ GitHub
+            </a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Voice-Controlled AI Video Ranking</h1>
+            <p>Help improve AI models for everyone while enjoying beautiful AI art on dual monitors. Zero detection, hands-free operation, pure magic.</p>
+            
+            <div class="cta-buttons">
+                <a href="https://github.com/ethansarif-kattan/ai-video-rank-voice-recog" class="btn btn-primary" target="_blank">
+                    🚀 Get Started
+                </a>
+                <a href="#setup" class="btn btn-secondary">
+                    📖 Setup Guide
+                </a>
+            </div>
+            
+            <div class="demo-video">
+                <p>🎥 Demo video coming soon...</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">Why This Is Amazing</h2>
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <div class="benefit-icon">🎨</div>
+                    <h3>Beautiful AI Art Always</h3>
+                    <p>Turn your dual monitor setup into a living AI art gallery. Watch the latest video generation models create stunning content 24/7.</p>
+                </div>
+                
+                <div class="benefit-card">
+                    <div class="benefit-icon">🤝</div>
+                    <h3>Help Everyone</h3>
+                    <p>Your votes directly contribute to Artificial Analysis rankings, helping the entire AI community understand which models work best.</p>
+                </div>
+                
+                <div class="benefit-card">
+                    <div class="benefit-icon">🧠</div>
+                    <h3>Learn About AI Models</h3>
+                    <p>Discover new models like PixVerse V5, Vidu Q1, and Hailuo. Understand their strengths and specialties through hands-on comparison.</p>
+                </div>
+                
+                <div class="benefit-card">
+                    <div class="benefit-icon">🎙️</div>
+                    <h3>Completely Hands-Free</h3>
+                    <p>Just say "up" or "down" to vote. Daniel's voice tells you which model was selected. Perfect for multitasking or accessibility.</p>
+                </div>
+                
+                <div class="benefit-card">
+                    <div class="benefit-icon">🛡️</div>
+                    <h3>Zero Detection</h3>
+                    <p>Runs inside your real Chrome browser using a legitimate extension. No bot detection, no Cloudflare issues, just pure reliability.</p>
+                </div>
+                
+                <div class="benefit-card">
+                    <div class="benefit-icon">⚡</div>
+                    <h3>Real-Time Response</h3>
+                    <p>Advanced RealtimeSTT with 3-live-or-final detection logic ensures lightning-fast, accurate voice recognition without false positives.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">Perfect Dual Monitor Experience</h2>
+            <div class="monitor-setup">
+                <div class="monitor">
+                    <h4>Monitor 1</h4>
+                    <p>Chrome Browser<br>Arena Controls<br>Extension Running</p>
+                </div>
+                <div class="monitor">
+                    <h4>Monitor 2</h4>
+                    <p>TOP Video<br>BOTTOM Video<br>Pure AI Art</p>
+                </div>
+            </div>
+            <p style="text-align: center; margin-top: 2rem; font-size: 1.1rem; color: #64748b;">
+                Transform your workspace into an AI art gallery while contributing to model improvement
+            </p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">Powerful Features</h2>
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Voice Commands:</strong> "up", "down", "play", "pause"</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Daniel TTS:</strong> Announces selected model names</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Chrome Extension:</strong> Auto-scrapes video data</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>RealtimeSTT:</strong> Advanced speech recognition</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Fast Polling:</strong> 100ms model name detection</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Smart Debouncing:</strong> No duplicate votes</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Dual Windows:</strong> Separate TOP/BOTTOM displays</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <span><strong>Real Session:</strong> Uses your actual browser</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="setup">
+        <div class="container">
+            <h2 class="section-title">Quick Setup Guide</h2>
+            <div class="setup-steps">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Install Prerequisites</h3>
+                    <p>Set up the required software on your system:</p>
+                    <div class="code-block">
+# Create Python environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install RealtimeSTT
+pip install RealtimeSTT
+
+# Install Node.js dependencies
+npm install</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Load Chrome Extension</h3>
+                    <p>Add the extension to your Chrome browser:</p>
+                    <div class="code-block">
+1. Open chrome://extensions/
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select chrome-extension/ folder
+5. Verify "Arena Helper" appears</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Start the System</h3>
+                    <p>Launch both the main app and voice recognition:</p>
+                    <div class="code-block">
+# Terminal 1: Main application
+npm run dev
+
+# Terminal 2: Voice recognition
+./start-voice.sh</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Navigate & Vote</h3>
+                    <p>Go to the arena and start ranking:</p>
+                    <div class="code-block">
+1. Visit artificialanalysis.ai/text-to-video/arena
+2. Solve Cloudflare once (if needed)
+3. Two video windows open automatically
+4. Say "up" or "down" to vote
+5. Daniel announces the model name</div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 3rem;">
+                <a href="https://github.com/ethansarif-kattan/ai-video-rank-voice-recog#readme" class="btn btn-primary" target="_blank">
+                    📚 Full Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">Voice Command Examples</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div style="background: #f1f5f9; padding: 2rem; border-radius: 16px; margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1rem; color: #1e293b;">💬 What You Say</h3>
+                    <div style="font-family: monospace; background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        🗣️ "up"
+                    </div>
+                    <div style="font-family: monospace; background: white; padding: 1rem; border-radius: 8px;">
+                        🤖 Daniel: "PixVerse V5"
+                    </div>
+                </div>
+                
+                <div style="background: #f1f5f9; padding: 2rem; border-radius: 16px;">
+                    <h3 style="margin-bottom: 1rem; color: #1e293b;">🎯 What Happens</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 0.5rem 0;">✅ Votes for top video</li>
+                        <li style="padding: 0.5rem 0;">🔍 Extension detects preferred model</li>
+                        <li style="padding: 0.5rem 0;">🗣️ Daniel announces model name</li>
+                        <li style="padding: 0.5rem 0;">📊 Contributes to Artificial Analysis rankings</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Built with ❤️ for the AI community. Help improve AI models while enjoying beautiful video art.</p>
+            <div class="footer-links">
+                <a href="https://github.com/ethansarif-kattan/ai-video-rank-voice-recog" target="_blank">GitHub Repository</a>
+                <a href="https://artificialanalysis.ai/text-to-video/arena" target="_blank">Artificial Analysis Arena</a>
+                <a href="https://github.com/KoljaB/RealtimeSTT" target="_blank">RealtimeSTT</a>
+            </div>
+            <p style="margin-top: 2rem; opacity: 0.6; font-size: 0.9rem;">
+                MIT License • Open Source • Privacy Focused
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
