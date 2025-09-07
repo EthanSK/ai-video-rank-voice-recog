@@ -10,6 +10,9 @@ export class VoiceController {
   private isMutedForTTS = false;
   private lastCommandTime = 0;
   private commandDebounceMs = 300; // Prevent duplicate commands within 300ms (fast voting)
+  private liveCommandProcessed = false; // Track if we've processed a live command
+  private liveCommandCount = 0; // Count consecutive live commands with same trigger
+  private lastDetectedCommand = ""; // Track which command we're seeing
 
   public onCommand: ((command: string) => void) | null = null;
 
@@ -48,26 +51,77 @@ export class VoiceController {
       return;
     }
 
-    // Debounce rapid commands
     const now = Date.now();
-    if (now - this.lastCommandTime < this.commandDebounceMs) {
-      console.log(`🚫 Ignoring command (debounced): "${message.text}"`);
-      return;
-    }
+    const command = message.text.toLowerCase().trim();
 
     console.log(
       `🗣️ Received: "${message.text}" (${message.isFinal ? "final" : "live"})`
     );
 
-    // Process commands on both live and final transcriptions for better responsiveness
-    // But prioritize final transcriptions for accuracy
-    const shouldProcess =
-      message.isFinal ||
-      (message.text.length > 3 && this.hasStrongCommandSignal(message.text));
+    // Handle final transcription - guaranteed source of truth
+    if (message.isFinal) {
+      console.log(`🎯 Final transcription received - checking for commands`);
+      
+      const hasCommand = this.hasStrongCommandSignal(command);
+      const commandType = this.extractCommandType(command);
+      
+      if (hasCommand && !this.liveCommandProcessed) {
+        // Debounce rapid commands
+        if (now - this.lastCommandTime < this.commandDebounceMs) {
+          console.log(`🚫 Ignoring FINAL command (debounced): "${command}"`);
+        } else {
+          console.log(`✅ Processing FINAL command: "${command}"`);
+          this.processCommand(command);
+          this.lastCommandTime = now;
+          this.liveCommandProcessed = true;
+        }
+      }
+      
+      // Reset tracking for next speech
+      this.liveCommandCount = 0;
+      this.lastDetectedCommand = "";
+      this.liveCommandProcessed = false;
+      console.log(`🔄 Reset command tracking for next speech`);
+      return;
+    }
 
-    if (shouldProcess) {
-      this.processCommand(message.text.toLowerCase().trim());
-      this.lastCommandTime = now;
+    // Handle live transcription - wait for 3 consecutive matches
+    const hasCommand = this.hasStrongCommandSignal(command);
+    
+    if (hasCommand) {
+      const commandType = this.extractCommandType(command);
+      
+      if (commandType === this.lastDetectedCommand) {
+        // Same command detected again
+        this.liveCommandCount++;
+        console.log(`🔄 Live command "${commandType}" count: ${this.liveCommandCount}/3`);
+      } else {
+        // New/different command detected
+        this.lastDetectedCommand = commandType;
+        this.liveCommandCount = 1;
+        console.log(`🆕 New live command detected: "${commandType}" (1/3)`);
+      }
+      
+      // Process after 3 consecutive detections (if not already processed)
+      if (this.liveCommandCount >= 3 && !this.liveCommandProcessed) {
+        // Debounce rapid commands
+        if (now - this.lastCommandTime < this.commandDebounceMs) {
+          console.log(`🚫 Ignoring LIVE command (debounced): "${command}"`);
+          return;
+        }
+        
+        console.log(`🎯 Processing LIVE command after 3 detections: "${command}"`);
+        this.processCommand(command);
+        this.lastCommandTime = now;
+        this.liveCommandProcessed = true;
+      }
+    } else {
+      // No command detected, reset counters
+      if (this.liveCommandCount > 0) {
+        console.log(`🔄 No command in transcription, resetting counters`);
+        this.liveCommandCount = 0;
+        this.lastDetectedCommand = "";
+      }
     }
   }
 
@@ -83,6 +137,19 @@ export class VoiceController {
     // Check for media controls
     const mediaCommands = ["play", "pause", "stop"];
     return mediaCommands.some((cmd) => this.containsWord(lowerText, cmd));
+  }
+
+  private extractCommandType(text: string): string {
+    // Extract which specific command type was detected
+    const lowerText = text.toLowerCase();
+    
+    if (this.containsWord(lowerText, 'up')) return 'up';
+    if (this.containsWord(lowerText, 'down')) return 'down';
+    if (this.containsWord(lowerText, 'play')) return 'play';
+    if (this.containsWord(lowerText, 'pause')) return 'pause';
+    if (this.containsWord(lowerText, 'stop')) return 'stop';
+    
+    return '';
   }
 
   private async processCommand(command: string): Promise<void> {
