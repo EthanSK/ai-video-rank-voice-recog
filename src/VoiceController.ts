@@ -50,41 +50,61 @@ export class VoiceController {
 
     console.log(`🗣️ Received: "${message.text}" (${message.isFinal ? 'final' : 'live'})`);
     
-    // Process commands on final transcriptions for better accuracy
-    if (message.isFinal) {
+    // Process commands on both live and final transcriptions for better responsiveness
+    // But prioritize final transcriptions for accuracy
+    const shouldProcess = message.isFinal || 
+                         (message.text.length > 3 && this.hasStrongCommandSignal(message.text));
+    
+    if (shouldProcess) {
       this.processCommand(message.text.toLowerCase().trim());
       this.lastCommandTime = now;
     }
   }
 
+  private hasStrongCommandSignal(text: string): boolean {
+    // Check if text contains clear command words that we should act on immediately
+    const strongCommands = [
+      'left', 'right', 'top', 'bottom', 'first', 'second', 
+      'one', 'two', 'too', 'to', '1', '2',
+      'play', 'pause', 'stop'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return strongCommands.some(cmd => this.containsWord(lowerText, cmd));
+  }
+
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
     
-    // Check for left/right commands 
-    if (this.containsWord(command, 'left') || this.containsWord(command, 'first') || 
-        this.containsWord(command, 'top')) {
-      console.log('🎯 Detected command: left');
-      this.executeCommand('top'); // Still maps to 'top' internally for compatibility
+    // More resilient command detection - check for multiple patterns
+    
+    // LEFT/TOP/FIRST commands - more variations and fuzzy matching
+    if (this.containsAnyWord(command, ['left', 'first', 'top', 'one', '1', 'lift', 'live']) ||
+        this.containsPhrase(command, ['go left', 'choose left', 'select first', 'pick one', 'will lift', 'will left'])) {
+      console.log('🎯 Detected command: LEFT (phonetic match included)');
+      this.executeCommand('top');
       return;
     }
     
-    // Enhanced number 2 detection - include 'too', 'to', 'two'
-    if (this.containsWord(command, 'right') || this.containsWord(command, 'second') || 
-        this.containsWord(command, 'bottom') || this.containsWord(command, 'two') ||
-        this.containsWord(command, 'too') || this.containsWord(command, 'to')) {
-      console.log('🎯 Detected command: right'); 
-      this.executeCommand('bottom'); // Still maps to 'bottom' internally for compatibility
+    // RIGHT/BOTTOM/SECOND commands - enhanced detection
+    if (this.containsAnyWord(command, ['right', 'second', 'bottom', 'two', 'too', 'to', '2', 'write', 'ride']) ||
+        this.containsPhrase(command, ['go right', 'choose right', 'select second', 'pick two', 'go write', 'go ride'])) {
+      console.log('🎯 Detected command: RIGHT (phonetic match included)'); 
+      this.executeCommand('bottom');
       return;
     }
     
-    // Check for other commands (pause first to avoid play conflicts)
-    const otherCommands = ['pause', 'play'];
-    for (const cmd of otherCommands) {
-      if (this.containsWord(command, cmd)) {        
-        console.log(`🎯 Detected command: ${cmd}`);
-        this.executeCommand(cmd);
-        return;
-      }
+    // Media controls
+    if (this.containsAnyWord(command, ['pause', 'stop'])) {
+      console.log('🎯 Detected command: PAUSE');
+      this.executeCommand('pause');
+      return;
+    }
+    
+    if (this.containsAnyWord(command, ['play', 'resume', 'start'])) {
+      console.log('🎯 Detected command: PLAY');
+      this.executeCommand('play');
+      return;
     }
     
     console.log(`❓ No matching command found in: "${command}"`);
@@ -94,6 +114,17 @@ export class VoiceController {
     // Match the word at word boundaries
     const regex = new RegExp(`\\b${word}\\b`, 'i');
     return regex.test(text);
+  }
+
+  private containsAnyWord(text: string, words: string[]): boolean {
+    // Check if text contains any of the given words
+    return words.some(word => this.containsWord(text, word));
+  }
+
+  private containsPhrase(text: string, phrases: string[]): boolean {
+    // Check if text contains any of the given phrases
+    const lowerText = text.toLowerCase();
+    return phrases.some(phrase => lowerText.includes(phrase.toLowerCase()));
   }
 
   private async executeCommand(cmd: string): Promise<void> {
