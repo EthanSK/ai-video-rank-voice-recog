@@ -1,4 +1,7 @@
-import { RealtimeSTTServer, TranscriptionMessage } from './services/RealtimeSTTServer';
+import {
+  RealtimeSTTServer,
+  TranscriptionMessage,
+} from "./services/RealtimeSTTServer";
 
 export class VoiceController {
   private sttServer: RealtimeSTTServer;
@@ -7,7 +10,7 @@ export class VoiceController {
   private isMutedForTTS = false;
   private lastCommandTime = 0;
   private commandDebounceMs = 1000; // Prevent duplicate commands within 1 second
-  
+
   public onCommand: ((command: string) => void) | null = null;
 
   constructor() {
@@ -15,24 +18,28 @@ export class VoiceController {
   }
 
   async initialize(): Promise<void> {
-    console.log('🎤 Initializing voice controller with RealtimeSTT...');
-    
+    console.log("🎤 Initializing voice controller with RealtimeSTT...");
+
     // Set up transcription event handler
-    this.sttServer.on('transcription', (message: TranscriptionMessage) => {
+    this.sttServer.on("transcription", (message: TranscriptionMessage) => {
       this.handleTranscription(message);
     });
-    
+
     // Start the TCP server
     await this.sttServer.start();
-    
+
     this.isListening = true;
-    console.log('✅ Voice controller ready! Start the Python script: python3 realtime_stt_streamer.py');
+    console.log(
+      "✅ Voice controller ready! Start the Python script: python3 realtime_stt_streamer.py"
+    );
   }
 
   private handleTranscription(message: TranscriptionMessage): void {
     // Skip processing if muted for TTS
     if (this.isMutedForTTS) {
-      console.log('🔇 Voice recognition muted (TTS speaking), ignoring transcription');
+      console.log(
+        "🔇 Voice recognition muted (TTS speaking), ignoring transcription"
+      );
       return;
     }
 
@@ -48,13 +55,16 @@ export class VoiceController {
       return;
     }
 
-    console.log(`🗣️ Received: "${message.text}" (${message.isFinal ? 'final' : 'live'})`);
-    
+    console.log(
+      `🗣️ Received: "${message.text}" (${message.isFinal ? "final" : "live"})`
+    );
+
     // Process commands on both live and final transcriptions for better responsiveness
     // But prioritize final transcriptions for accuracy
-    const shouldProcess = message.isFinal || 
-                         (message.text.length > 3 && this.hasStrongCommandSignal(message.text));
-    
+    const shouldProcess =
+      message.isFinal ||
+      (message.text.length > 3 && this.hasStrongCommandSignal(message.text));
+
     if (shouldProcess) {
       this.processCommand(message.text.toLowerCase().trim());
       this.lastCommandTime = now;
@@ -64,70 +74,103 @@ export class VoiceController {
   private hasStrongCommandSignal(text: string): boolean {
     // Check if text contains clear command words that we should act on immediately
     const lowerText = text.toLowerCase();
-    
-    // Check for "number one" or "number two" phrases
-    if (lowerText.includes('number one') || lowerText.includes('number 1')) {
+
+    // Check for "number" prefix with variations of "one" and "two"
+    if (
+      this.hasNumberOneCommand(lowerText) ||
+      this.hasNumberTwoCommand(lowerText)
+    ) {
       return true;
     }
-    if (lowerText.includes('number two') || lowerText.includes('number 2')) {
-      return true;
-    }
-    
+
     // Check for media controls
-    const mediaCommands = ['play', 'pause', 'stop'];
-    return mediaCommands.some(cmd => this.containsWord(lowerText, cmd));
+    const mediaCommands = ["play", "pause", "stop"];
+    return mediaCommands.some((cmd) => this.containsWord(lowerText, cmd));
   }
 
   private async processCommand(command: string): Promise<void> {
     console.log(`🎯 Processing command: "${command}"`);
-    
-    // Only respond to "number one" or "number two" commands
-    
-    // Check for "number one" variations
-    if (command.includes('number one') || command.includes('number 1')) {
-      console.log('🎯 Detected command: NUMBER ONE → TOP');
-      this.executeCommand('top');
+
+    // Only respond to "number one" or "number two" commands (with misspelling tolerance)
+
+    // Check for "number one" variations (including misspellings)
+    if (this.hasNumberOneCommand(command)) {
+      console.log("🎯 Detected command: NUMBER ONE → TOP");
+      this.executeCommand("top");
       return;
     }
-    
-    // Check for "number two" variations  
-    if (command.includes('number two') || command.includes('number 2')) {
-      console.log('🎯 Detected command: NUMBER TWO → BOTTOM');
-      this.executeCommand('bottom');
+
+    // Check for "number two" variations (including misspellings)
+    if (this.hasNumberTwoCommand(command)) {
+      console.log("🎯 Detected command: NUMBER TWO → BOTTOM");
+      this.executeCommand("bottom");
       return;
     }
-    
+
     // Media controls
-    if (this.containsAnyWord(command, ['pause', 'stop'])) {
-      console.log('🎯 Detected command: PAUSE');
-      this.executeCommand('pause');
+    if (this.containsAnyWord(command, ["pause", "stop"])) {
+      console.log("🎯 Detected command: PAUSE");
+      this.executeCommand("pause");
       return;
     }
-    
-    if (this.containsAnyWord(command, ['play', 'resume', 'start'])) {
-      console.log('🎯 Detected command: PLAY');
-      this.executeCommand('play');
+
+    if (this.containsAnyWord(command, ["play", "resume", "start"])) {
+      console.log("🎯 Detected command: PLAY");
+      this.executeCommand("play");
       return;
     }
-    
-    console.log(`❓ No matching command found in: "${command}" (only 'number one', 'number two', 'pause', 'play' are recognized)`);
+
+    console.log(
+      `❓ No matching command found in: "${command}" (only 'number one', 'number two', 'pause', 'play' are recognized)`
+    );
   }
 
   private containsWord(text: string, word: string): boolean {
     // Match the word at word boundaries
-    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    const regex = new RegExp(`\\b${word}\\b`, "i");
     return regex.test(text);
   }
 
   private containsAnyWord(text: string, words: string[]): boolean {
     // Check if text contains any of the given words
-    return words.some(word => this.containsWord(text, word));
+    return words.some((word) => this.containsWord(text, word));
   }
 
   private containsPhrase(text: string, phrases: string[]): boolean {
     // Check if text contains any of the given phrases
     const lowerText = text.toLowerCase();
-    return phrases.some(phrase => lowerText.includes(phrase.toLowerCase()));
+    return phrases.some((phrase) => lowerText.includes(phrase.toLowerCase()));
+  }
+
+  private hasNumberOneCommand(text: string): boolean {
+    // Check for "number one" variations including misspellings
+    const lowerText = text.toLowerCase();
+    const numberOnePatterns = [
+      "number one",
+      "number 1",
+      "num one",
+      "num 1",
+      "number won",
+      "numbr one",
+      "numero one",
+    ];
+    return numberOnePatterns.some((pattern) => lowerText.includes(pattern));
+  }
+
+  private hasNumberTwoCommand(text: string): boolean {
+    // Check for "number two" variations including misspellings and "to/too"
+    const lowerText = text.toLowerCase();
+    const numberTwoPatterns = [
+      "number two",
+      "number 2",
+      "num two",
+      "num 2",
+      "number to",
+      "number too",
+      "numbr two",
+      "numero two",
+    ];
+    return numberTwoPatterns.some((pattern) => lowerText.includes(pattern));
   }
 
   private async executeCommand(cmd: string): Promise<void> {
@@ -139,7 +182,7 @@ export class VoiceController {
         console.error(`❌ Error executing handler for "${cmd}":`, error);
       }
     }
-    
+
     // Also call the onCommand callback if set
     if (this.onCommand) {
       this.onCommand(cmd);
@@ -152,24 +195,24 @@ export class VoiceController {
 
   // Mute voice recognition during TTS to prevent interference
   muteForTTS(): void {
-    console.log('🔇 Muting voice recognition for TTS');
+    console.log("🔇 Muting voice recognition for TTS");
     this.isMutedForTTS = true;
   }
 
   // Unmute voice recognition after TTS completes
   unmuteAfterTTS(): void {
-    console.log('🔊 Unmuting voice recognition after TTS');
+    console.log("🔊 Unmuting voice recognition after TTS");
     this.isMutedForTTS = false;
   }
 
   async cleanup(): Promise<void> {
-    console.log('🧹 Cleaning up voice controller...');
+    console.log("🧹 Cleaning up voice controller...");
     this.isListening = false;
 
     // Stop the RealtimeSTT server
     this.sttServer.stop();
-    
-    console.log('✅ Voice controller cleanup completed');
+
+    console.log("✅ Voice controller cleanup completed");
   }
 
   // Check if RealtimeSTT client is connected

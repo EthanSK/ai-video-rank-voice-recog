@@ -27,7 +27,10 @@
       "Bash(brew install:*)",
       "Bash(npx tsx:*)",
       "Bash(chmod:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(kill:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(sudo pkill:*)"
     ],
     "deny": [],
     "ask": []

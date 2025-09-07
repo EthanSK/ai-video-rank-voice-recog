@@ -308,7 +308,7 @@ export class ExtensionSystem {
         return;
       }
 
-      console.log(`🗣️  DANIEL WILL ANNOUNCE (ONCE): "Selected ${modelName}"`);
+      console.log(`🗣️  DANIEL WILL ANNOUNCE (ONCE): "${modelName}"`);
       this.lastTTSTime = currentTime; // Update last speech time
       this.lastAnnouncedPreferredModelName = preferredNameNorm; // Mark as announced for current videos
 
@@ -318,7 +318,7 @@ export class ExtensionSystem {
       }
 
       // Use macOS built-in 'say' command with Daniel voice to announce the selected model
-      const announcement = `Selected ${modelName}`;
+      const announcement = modelName;
       const sayProcess = spawn("say", ["-v", "Daniel", announcement]);
 
       sayProcess.on("error", (error) => {
