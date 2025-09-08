@@ -4,6 +4,11 @@ Simple RealtimeSTT implementation that streams text in real-time
 No file creation, just direct audio-to-text streaming
 """
 
+import os
+# Fix OpenMP library conflict on Intel Macs - MUST be set before any ML library imports
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE' 
+os.environ['OMP_NUM_THREADS'] = '1'
+
 import socket
 import json
 import time
@@ -76,33 +81,14 @@ class SimpleRealtimeSTT:
         print("🎤 Initializing RealtimeSTT...")
         
         try:
-            # Stricter configuration to reduce false positives and improve confidence
+            # Basic configuration that should work with most RealtimeSTT versions
             recorder_config = {
                 'model': 'tiny.en',  # Fast model
-                'realtime_model_type': 'tiny.en',
                 'language': 'en',
-                'enable_realtime_transcription': True,
                 'on_realtime_transcription_update': self.on_realtime_transcription_update,
-                
-                # Performance optimizations from GitHub discussions
-                'realtime_processing_pause': 0,  # Minimum latency
-                'beam_size': 1,  # Reduce model bias and improve speed
-                'normalize_audio': True,  # Consistent transcription quality
-                'use_main_model_for_realtime': True,  # Better consistency
-                
-                # Stricter VAD parameters (correct parameter names)
-                'silero_sensitivity': 0.6,  # Stricter Silero VAD (0.4 default -> 0.6)
-                'webrtc_sensitivity': 2,    # Less sensitive WebRTC VAD (3 default -> 2)
-                'silero_deactivity_detection': True,  # Better end-of-speech detection
-                
-                # Audio processing with stricter thresholds
-                'post_speech_silence_duration': 0.5,  # Longer silence before stopping (0.6 default -> 0.5)
-                'min_length_of_recording': 0.6,      # Require longer recordings (0.5 default -> 0.6)
-                'pre_recording_buffer_duration': 0.8,  # Reduce context bleeding
-                
+                'on_realtime_transcription_stabilized': self.on_realtime_transcription_stabilized,
                 'use_microphone': True,
-                'spinner': False,
-                'level': 30
+                'spinner': False
             }
             
             recorder = AudioToTextRecorder(**recorder_config)
@@ -118,9 +104,20 @@ class SimpleRealtimeSTT:
                     # This gets complete transcriptions and triggers real-time callbacks
                     full_sentence = recorder.text(self.on_realtime_transcription_stabilized)
                     time.sleep(0.1)  # Small pause
+                except KeyboardInterrupt:
+                    print("\n🛑 Stopping...")
+                    self.running = False
+                    break
                 except Exception as e:
                     print(f"⚠️ Recording error: {e}")
-                    time.sleep(1)
+                    print("💡 Trying to reinitialize recorder...")
+                    try:
+                        recorder = AudioToTextRecorder(**recorder_config)
+                        print("✅ Recorder reinitialized")
+                    except Exception as reinit_error:
+                        print(f"❌ Failed to reinitialize: {reinit_error}")
+                        print("⏸️ Pausing for 5 seconds...")
+                        time.sleep(5)
                     
         except KeyboardInterrupt:
             print("\n🛑 Stopping RealtimeSTT...")
