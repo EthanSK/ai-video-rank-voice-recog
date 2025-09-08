@@ -32,18 +32,16 @@
       "mcp__ide__getDiagnostics",
       "Bash(sudo pkill:*)",
       "Bash(git checkout:*)",
-<<<<<<< Updated upstream
       "Bash(git pull:*)",
-      "Bash(git commit:*)"
-=======
+      "Bash(git commit:*)",
       "Bash(CFLAGS=\"-I/usr/local/include\" LDFLAGS=\"-L/usr/local/lib\" pip install PyAudio)",
       "Bash(git add:*)",
       "Bash(git push:*)",
       "Bash(./start-voice.sh:*)",
       "Bash(export KMP_DUPLICATE_LIB_OK=TRUE)",
       "Bash(git config:*)",
-      "Bash(git stash:*)"
->>>>>>> Stashed changes
+      "Bash(git stash:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "ask": []
