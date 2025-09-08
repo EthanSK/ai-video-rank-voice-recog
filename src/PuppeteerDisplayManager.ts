@@ -117,7 +117,7 @@ export class PuppeteerDisplayManager {
                   ${showPrompt ? '' : 'display: none;'}
                   position: relative;
                   z-index: 10;
-                  display: flex;
+                  display: ${showPrompt ? 'flex' : 'none'};
                   flex-direction: column;
                   justify-content: center;
               }
@@ -127,7 +127,7 @@ export class PuppeteerDisplayManager {
                   font-weight: bold;
                   margin-bottom: ${showPrompt ? '6px' : '0'};
                   text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-                  ${showPrompt ? '' : 'display: none;'}
+                  display: ${showPrompt ? 'block' : 'none'};
               }
               
               .prompt {
