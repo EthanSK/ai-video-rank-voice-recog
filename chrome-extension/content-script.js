@@ -324,6 +324,17 @@ class VideoExtractor {
   }
 
   extractAndSendModelNames() {
+    // Check if extension context is still valid
+    try {
+      if (!chrome || !chrome.runtime || !document) {
+        console.log('⚠️ Extension context invalidated - stopping model extraction');
+        return;
+      }
+    } catch (e) {
+      console.log('⚠️ Extension context invalidated - stopping model extraction');
+      return;
+    }
+    
     // Increment scan counter
     this.scanCount++;
     
@@ -331,6 +342,22 @@ class VideoExtractor {
     // Based on the DOM investigation, they appear in divs with green/red colors and arrows
     const modelElements = [];
     const debugInfo = [];
+    
+    // TEMP DEBUG: Check what's on the page
+    const allDivs = document.querySelectorAll('div');
+    console.log(`🧪 DEBUG: Found ${allDivs.length} total divs on page`);
+    
+    // Look for any text that might be model names
+    let modelLikeText = [];
+    allDivs.forEach((div, i) => {
+      const text = div.textContent?.trim();
+      if (text && text.length > 0 && text.length < 50 && 
+          (text.includes('gpt') || text.includes('claude') || text.includes('llama') || 
+           text.includes('gemini') || text.includes('GPT') || text.includes('Claude'))) {
+        modelLikeText.push({text, classes: div.className});
+      }
+    });
+    console.log(`🧪 DEBUG: Found ${modelLikeText.length} potential model names:`, modelLikeText);
     
     // More comprehensive search - look for the specific patterns from our Playwright investigation
     const selectors = [
@@ -396,26 +423,36 @@ class VideoExtractor {
           }
           // Priority 3: Fallback detection
           else {
-            const isGreen = classList.includes('green') || classList.includes('upvote');
-            const isRed = classList.includes('red') || classList.includes('downvote');
-            
-            if (isGreen) {
-              preference = 'preferred';
-              type = 'upvote';
-            } else if (isRed) {
-              preference = 'not-preferred';
-              type = 'downvote';
+            try {
+              const isGreen = classList.includes('green') || classList.includes('upvote');
+              const isRed = classList.includes('red') || classList.includes('downvote');
+              
+              if (isGreen) {
+                preference = 'preferred';
+                type = 'upvote';
+              } else if (isRed) {
+                preference = 'not-preferred';
+                type = 'downvote';
+              }
+            } catch (e) {
+              console.log('⚠️ Extension context invalidated - skipping element');
+              return; // Skip this element if context is invalid
             }
           }
           
+          // Add to modelElements if we found a valid preference (moved outside try-catch)
           if (preference !== 'unknown') {
-            modelElements.push({
-              name: text,
-              preference: preference,
-              type: type,
-              selector: selector,
-              element: isGreen ? 'GREEN UPVOTE' : isRed ? 'RED DOWNVOTE' : 'PARENT DETECTED'
-            });
+            try {
+              modelElements.push({
+                name: text,
+                preference: preference,
+                type: type,
+                selector: selector,
+                element: type === 'upvote' ? 'GREEN UPVOTE' : type === 'downvote' ? 'RED DOWNVOTE' : 'PARENT DETECTED'
+              });
+            } catch (e) {
+              console.log('⚠️ Extension context invalidated - skipping modelElements push');
+            }
           }
         }
       });
