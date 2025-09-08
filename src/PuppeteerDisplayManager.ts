@@ -87,8 +87,8 @@ export class PuppeteerDisplayManager {
   }
   
   private async loadVideoPage(page: Page, videoUrl: string, title: string, prompt: string) {
-    // Show prompt in both windows now
-    const showPrompt = true;
+    // Only show prompt overlay in bottom video (title '2')
+    const showPrompt = title === '2';
     
     const html = `
       <!DOCTYPE html>
@@ -110,29 +110,42 @@ export class PuppeteerDisplayManager {
               
               .header {
                   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  padding: 10px;
+                  padding: 15px 20px;
                   text-align: center;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                  min-height: fit-content;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                  height: ${showPrompt ? '12.5vh' : '0px'};
+                  ${showPrompt ? '' : 'display: none;'}
+                  position: relative;
+                  z-index: 10;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: center;
               }
               
               .title {
-                  font-size: 2rem;
+                  font-size: ${showPrompt ? '1.8rem' : '0'};
                   font-weight: bold;
-                  margin-bottom: ${showPrompt ? '8px' : '0'};
+                  margin-bottom: ${showPrompt ? '6px' : '0'};
                   text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+                  ${showPrompt ? '' : 'display: none;'}
               }
               
               .prompt {
-                  font-size: 0.9rem;
-                  opacity: 0.9;
-                  max-width: 800px;
+                  font-size: 1rem;
+                  opacity: 0.95;
                   margin: 0 auto;
-                  line-height: 1.2;
-                  background: rgba(0,0,0,0.2);
-                  padding: 8px;
+                  line-height: 1.3;
+                  background: rgba(0,0,0,0.3);
+                  padding: 10px 15px;
                   border-radius: 8px;
-                  border: 1px solid rgba(255,255,255,0.1);
+                  border: 1px solid rgba(255,255,255,0.2);
+                  flex-grow: 1;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  text-align: center;
+                  overflow: hidden;
+                  word-wrap: break-word;
               }
               
               .video-container {
@@ -140,18 +153,18 @@ export class PuppeteerDisplayManager {
                   display: flex;
                   justify-content: center;
                   align-items: center;
-                  padding: 5px;
-                  background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+                  padding: 0;
+                  background: #000;
+                  width: 100%;
+                  height: ${showPrompt ? '87.5vh' : '100vh'};
+                  position: relative;
               }
               
               video {
-                  max-width: 95%;
-                  max-height: 95%;
-                  width: auto;
-                  height: auto;
-                  border-radius: 15px;
-                  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+                  width: 100%;
+                  height: 100%;
                   object-fit: contain;
+                  background: #000;
               }
               
               .controls {
@@ -184,10 +197,12 @@ export class PuppeteerDisplayManager {
           </style>
       </head>
       <body>
+          ${showPrompt ? `
           <div class="header">
-              <div class="title">${title}</div>
-              ${showPrompt ? `<div class="prompt">${prompt}</div>` : ''}
+              <div class="title">Video ${title}</div>
+              <div class="prompt">${prompt}</div>
           </div>
+          ` : ''}
           
           <div class="video-container">
               ${videoUrl && videoUrl.trim() ? `
