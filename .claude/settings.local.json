@@ -31,7 +31,9 @@
       "Bash(kill:*)",
       "mcp__ide__getDiagnostics",
       "Bash(sudo pkill:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
